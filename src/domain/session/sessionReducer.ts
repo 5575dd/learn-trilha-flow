@@ -29,7 +29,13 @@ export interface SessionState {
 }
 
 export type SessionAction =
-  | { type: "INIT"; sessionId: string; questions: ValidQuestion[] }
+  | {
+      type: "INIT";
+      sessionId: string;
+      questions: ValidQuestion[];
+      resumeIndex?: number;
+      resumeAttempts?: AttemptRecord[];
+    }
   | { type: "START_ANSWER" }
   | { type: "SUBMIT"; attempt: AttemptRecord }
   | { type: "NEXT" }
@@ -48,16 +54,30 @@ export const initialSession: SessionState = {
 
 export function sessionReducer(state: SessionState, action: SessionAction): SessionState {
   switch (action.type) {
-    case "INIT":
+    case "INIT": {
+      if (action.questions.length === 0) {
+        return {
+          ...initialSession,
+          phase: "error",
+          sessionId: action.sessionId,
+          errorMessage: "Nenhuma questão válida",
+        };
+      }
+      const resumeAttempts = action.resumeAttempts ?? [];
+      const resumeIndex = Math.min(
+        Math.max(0, action.resumeIndex ?? 0),
+        action.questions.length,
+      );
+      const completed = resumeIndex >= action.questions.length;
       return {
-        phase: action.questions.length === 0 ? "error" : "ready",
+        phase: completed ? "completed" : "ready",
         sessionId: action.sessionId,
         questions: action.questions,
-        index: 0,
-        attempts: [],
+        index: completed ? action.questions.length : resumeIndex,
+        attempts: resumeAttempts,
         startedAt: Date.now(),
-        errorMessage: action.questions.length === 0 ? "Nenhuma questão válida" : undefined,
       };
+    }
     case "START_ANSWER":
       if (state.phase !== "ready" && state.phase !== "feedback") return state;
       return { ...state, phase: "answering" };
