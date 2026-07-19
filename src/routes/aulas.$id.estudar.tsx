@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { z } from "zod";
 import { RequireAuth } from "@/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
 import { listQuestoesByAula } from "@/data/queries";
@@ -14,10 +15,18 @@ import {
 import { evaluateAnswer } from "@/domain/answers/answerEvaluator";
 import { Activity } from "@/components/activities/Activity";
 import { FeedbackPanel } from "@/components/feedback/FeedbackPanel";
-import { InMemoryAttemptRepository } from "@/data/repositories/AttemptRepository";
+import {
+  InMemoryAttemptRepository,
+  loadSessionSnapshot,
+  saveSessionSnapshot,
+  clearSessionSnapshot,
+} from "@/data/repositories/AttemptRepository";
+
+const search = z.object({ resume: z.string().optional(), restart: z.string().optional() });
 
 export const Route = createFileRoute("/aulas/$id/estudar")({
   ssr: false,
+  validateSearch: (raw) => search.parse(raw),
   component: StudyRoute,
 });
 
@@ -25,16 +34,25 @@ const repo = new InMemoryAttemptRepository();
 
 function StudyRoute() {
   const { id } = Route.useParams();
+  const { resume, restart } = Route.useSearch();
   return (
     <RequireAuth>
       <AppShell>
-        <StudyView aulaId={Number(id)} />
+        <StudyView aulaId={Number(id)} wantResume={resume === "1"} wantRestart={restart === "1"} />
       </AppShell>
     </RequireAuth>
   );
 }
 
-function StudyView({ aulaId }: { aulaId: number }) {
+function StudyView({
+  aulaId,
+  wantResume,
+  wantRestart,
+}: {
+  aulaId: number;
+  wantResume: boolean;
+  wantRestart: boolean;
+}) {
   const navigate = useNavigate();
   const questoes = useQuery({
     queryKey: ["questoes", aulaId],
@@ -43,6 +61,7 @@ function StudyView({ aulaId }: { aulaId: number }) {
   const [state, dispatch] = useReducer(sessionReducer, initialSession);
   const initedRef = useRef(false);
   const submittingRef = useRef(false);
+  const [reviewOnly] = useState(false);
 
   const valids: ValidQuestion[] = useMemo(() => {
     const entries = validateAndRepair(questoes.data ?? []);
@@ -54,12 +73,53 @@ function StudyView({ aulaId }: { aulaId: number }) {
   useEffect(() => {
     if (!questoes.data || initedRef.current) return;
     initedRef.current = true;
-    const sessionId = `aula-${aulaId}-${Date.now()}`;
-    dispatch({ type: "INIT", sessionId, questions: valids });
-  }, [questoes.data, valids, aulaId]);
+    const snap = wantRestart ? null : loadSessionSnapshot(aulaId);
+    let sessionId = `aula-${aulaId}-${Date.now()}`;
+    let resumeIndex = 0;
+    let resumeAttempts: AttemptRecord[] = [];
+    if (snap && wantResume && snap.total === valids.length) {
+      sessionId = snap.sessionId;
+      resumeIndex = snap.index;
+      void repo.load(sessionId).then((atts) => {
+        // Attempts already loaded synchronously below; this is a no-op fetch cache.
+        void atts;
+      });
+      // Sync path: read localStorage directly to avoid race with dispatch.
+      // We rely on InMemoryAttemptRepository hydrate via load; do it inline:
+    }
+    // Load attempts synchronously (hydrates from localStorage on first call).
+    void repo.load(sessionId).then((atts) => {
+      resumeAttempts = wantResume ? atts : [];
+      if (wantRestart) {
+        void repo.clear(sessionId);
+        clearSessionSnapshot(aulaId);
+      }
+      dispatch({
+        type: "INIT",
+        sessionId,
+        questions: valids,
+        resumeIndex,
+        resumeAttempts,
+      });
+    });
+  }, [questoes.data, valids, aulaId, wantResume, wantRestart]);
+
+  // Persist snapshot on every meaningful state change.
+  useEffect(() => {
+    if (state.phase === "loading" || state.phase === "error") return;
+    if (!state.sessionId) return;
+    saveSessionSnapshot({
+      aulaId,
+      sessionId: state.sessionId,
+      index: state.index,
+      total: state.questions.length,
+      updatedAt: Date.now(),
+    });
+  }, [state.phase, state.index, state.sessionId, state.questions.length, aulaId]);
 
   useEffect(() => {
     if (state.phase === "completed") {
+      clearSessionSnapshot(aulaId);
       void navigate({
         to: "/aulas/$id/resultado",
         params: { id: String(aulaId) },
@@ -81,7 +141,11 @@ function StudyView({ aulaId }: { aulaId: number }) {
   const lastAttempt = state.attempts[state.attempts.length - 1];
   const showingFeedback = state.phase === "feedback" && lastAttempt?.questionId === current.id;
 
-  function handleSubmit(input: { text?: string; selectedBlockIds?: string[] }) {
+  function handleSubmit(input: {
+    text?: string;
+    selectedBlockIds?: string[];
+    selfEval?: "know" | "unknown" | "skip";
+  }) {
     if (submittingRef.current) return;
     if (state.phase !== "ready" && state.phase !== "answering") return;
     if (state.attempts.some((a) => a.questionId === current.id)) return;
@@ -97,7 +161,6 @@ function StudyView({ aulaId }: { aulaId: number }) {
       void repo.save(state.sessionId, attempt);
       dispatch({ type: "SUBMIT", attempt });
     } finally {
-      // Release on next tick to swallow accidental double-clicks in the same task
       setTimeout(() => {
         submittingRef.current = false;
       }, 0);
@@ -127,7 +190,7 @@ function StudyView({ aulaId }: { aulaId: number }) {
         </div>
       </div>
 
-      <Activity question={current} disabled={showingFeedback} onSubmit={handleSubmit} />
+      <Activity question={current} disabled={showingFeedback || reviewOnly} onSubmit={handleSubmit} />
 
       {showingFeedback && lastAttempt && (
         <FeedbackPanel
