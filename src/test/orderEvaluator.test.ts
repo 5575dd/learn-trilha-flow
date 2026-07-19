@@ -45,9 +45,7 @@ describe("ORDER evaluator", () => {
     it(`accepts canonical sentence: ${gabarito}`, () => {
       const q = orderQ(opcoes, gabarito);
       const canonicalIds = q.canonicalSequence.map((word) => {
-        const blk = q.availableBlocks.find(
-          (b) => b.text === word && !undefined,
-        );
+        const blk = q.availableBlocks.find((b) => b.text === word);
         if (!blk) throw new Error(`missing ${word}`);
         return blk.id;
       });
