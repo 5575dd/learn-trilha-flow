@@ -3,10 +3,10 @@ import type { EvaluationResult } from "./evaluationTypes";
 import { normalizeAnswer } from "./answerNormalizer";
 
 export interface StudentInput {
-  // For MC/TF/FB: the raw text the student entered/selected.
   text?: string;
-  // For ORDER: the block ids selected in order.
   selectedBlockIds?: string[];
+  // For self-eval kinds (FLASHCARD/OPEN/MICROSCENARIO): student marks themselves.
+  selfEval?: "know" | "unknown" | "skip";
 }
 
 function base(
@@ -28,21 +28,30 @@ function base(
 }
 
 export function evaluateAnswer(q: ValidQuestion, input: StudentInput): EvaluationResult {
-  if (q.kind === "ORDER") {
+  if (q.kind === "ORDER" || q.kind === "DIALOGUE_ORDER") {
     const ids = input.selectedBlockIds ?? [];
     if (ids.length !== q.availableBlocks.length) {
       return base(q, "", "invalid", "order.incomplete");
     }
     const byId = new Map(q.availableBlocks.map((b) => [b.id, b.text]));
-    const words: string[] = [];
+    const parts: string[] = [];
     for (const id of ids) {
       const t = byId.get(id);
       if (t === undefined) return base(q, "", "invalid", "order.unknown_block");
-      words.push(t);
+      parts.push(t);
     }
-    const sentence = words.join(" ");
-    const ok = normalizeAnswer(sentence) === normalizeAnswer(q.canonicalAnswerText);
+    const sentence = parts.join(q.separator);
+    const canonical =
+      q.kind === "DIALOGUE_ORDER" ? q.canonicalSequence.join(q.separator) : q.canonicalAnswerText;
+    const ok = normalizeAnswer(sentence) === normalizeAnswer(canonical);
     return base(q, sentence, ok ? "correct" : "incorrect", ok ? "order.match" : "order.mismatch");
+  }
+
+  if (q.kind === "FLASHCARD" || q.kind === "OPEN" || q.kind === "MICROSCENARIO") {
+    // Self-assessment. Never auto-correct. Always neutral for progress.
+    const mark = input.selfEval;
+    if (!mark) return base(q, input.text ?? "", "invalid", "selfeval.missing");
+    return base(q, input.text ?? mark, "neutral", `selfeval.${mark}`);
   }
 
   const text = (input.text ?? "").trim();
