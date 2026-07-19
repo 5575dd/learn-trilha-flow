@@ -5,12 +5,18 @@ import type {
   TFQuestion,
   FBQuestion,
   ORDERQuestion,
+  TextInputQuestion,
+  SelfEvalQuestion,
 } from "@/domain/questions/questionTypes";
 
 export interface ActivityProps {
   question: ValidQuestion;
   disabled: boolean;
-  onSubmit: (input: { text?: string; selectedBlockIds?: string[] }) => void;
+  onSubmit: (input: {
+    text?: string;
+    selectedBlockIds?: string[];
+    selfEval?: "know" | "unknown" | "skip";
+  }) => void;
 }
 
 export function Activity({ question, disabled, onSubmit }: ActivityProps) {
@@ -24,7 +30,16 @@ export function Activity({ question, disabled, onSubmit }: ActivityProps) {
     case "FB":
       return <FBView q={question} disabled={disabled} onSubmit={onSubmit} />;
     case "ORDER":
+    case "DIALOGUE_ORDER":
       return <OrderView q={question} disabled={disabled} onSubmit={onSubmit} />;
+    case "SHORT_ANSWER":
+    case "DICTATION":
+    case "CORRECTION":
+      return <TextView q={question} disabled={disabled} onSubmit={onSubmit} />;
+    case "FLASHCARD":
+    case "OPEN":
+    case "MICROSCENARIO":
+      return <SelfEvalView q={question} disabled={disabled} onSubmit={onSubmit} />;
   }
 }
 
@@ -40,6 +55,18 @@ function speak(text: string) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "en-US";
   s.speak(u);
+}
+
+function ListenButton({ text, label = "🔊 Ouvir" }: { text: string; label?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => speak(text)}
+      className="min-h-11 rounded-xl bg-purple-100 px-4 text-sm font-medium text-purple-800"
+    >
+      {label}
+    </button>
+  );
 }
 
 function MCView({
@@ -58,15 +85,7 @@ function MCView({
       {q.kind === "READING_MC" && q.supportText && (
         <p className="rounded-xl bg-purple-50 p-3 text-sm text-slate-700">{q.supportText}</p>
       )}
-      {q.kind === "LISTENING_MC" && q.audioText && (
-        <button
-          type="button"
-          onClick={() => speak(q.audioText!)}
-          className="min-h-11 rounded-xl bg-purple-100 px-4 text-sm font-medium text-purple-800"
-        >
-          🔊 Ouvir novamente
-        </button>
-      )}
+      {q.kind === "LISTENING_MC" && q.audioText && <ListenButton text={q.audioText} label="🔊 Ouvir novamente" />}
       <div className="space-y-2">
         {q.options.map((opt) => {
           const active = selected === opt;
@@ -187,40 +206,75 @@ function OrderView({
   const [selected, setSelected] = useState<string[]>([]);
   const remaining = q.shuffledBlocks.filter((b) => !selected.includes(b.id));
   const byId = new Map(q.availableBlocks.map((b) => [b.id, b.text]));
+  const isDialogue = q.kind === "DIALOGUE_ORDER";
   return (
     <div className="space-y-4">
-      <Stem text={q.enunciado || "Coloque os blocos na ordem correta."} />
+      <Stem
+        text={
+          q.enunciado ||
+          (isDialogue ? "Coloque as falas na ordem correta." : "Coloque os blocos na ordem correta.")
+        }
+      />
       <div
-        className="min-h-16 rounded-2xl border-2 border-dashed border-purple-200 bg-white p-3"
-        aria-label="Frase montada"
+        className={`min-h-16 rounded-2xl border-2 border-dashed border-purple-200 bg-white p-3 ${
+          isDialogue ? "space-y-2" : ""
+        }`}
+        aria-label={isDialogue ? "Diálogo montado" : "Frase montada"}
       >
-        <div className="flex flex-wrap gap-2">
-          {selected.map((id) => (
+        {isDialogue ? (
+          selected.map((id, i) => (
             <button
               key={id}
               type="button"
               disabled={disabled}
               onClick={() => setSelected((cur) => cur.filter((x) => x !== id))}
-              className="min-h-11 rounded-xl bg-purple-100 px-3 text-purple-900"
-              aria-label={`Remover ${byId.get(id)}`}
+              className="block w-full rounded-xl bg-purple-100 px-3 py-2 text-left text-sm text-purple-900"
+              aria-label={`Remover fala ${i + 1}`}
             >
               {byId.get(id)}
             </button>
-          ))}
-        </div>
+          ))
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {selected.map((id) => (
+              <button
+                key={id}
+                type="button"
+                disabled={disabled}
+                onClick={() => setSelected((cur) => cur.filter((x) => x !== id))}
+                className="min-h-11 rounded-xl bg-purple-100 px-3 text-purple-900"
+                aria-label={`Remover ${byId.get(id)}`}
+              >
+                {byId.get(id)}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-      <div className="flex flex-wrap gap-2" aria-label="Blocos disponíveis">
-        {remaining.map((b) => (
-          <button
-            key={b.id}
-            type="button"
-            disabled={disabled}
-            onClick={() => setSelected((cur) => [...cur, b.id])}
-            className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-slate-900"
-          >
-            {b.text}
-          </button>
-        ))}
+      <div className={isDialogue ? "space-y-2" : "flex flex-wrap gap-2"} aria-label="Blocos disponíveis">
+        {remaining.map((b) =>
+          isDialogue ? (
+            <button
+              key={b.id}
+              type="button"
+              disabled={disabled}
+              onClick={() => setSelected((cur) => [...cur, b.id])}
+              className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-900"
+            >
+              {b.text}
+            </button>
+          ) : (
+            <button
+              key={b.id}
+              type="button"
+              disabled={disabled}
+              onClick={() => setSelected((cur) => [...cur, b.id])}
+              className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-slate-900"
+            >
+              {b.text}
+            </button>
+          ),
+        )}
       </div>
       <div className="flex gap-2">
         <button
@@ -238,6 +292,128 @@ function OrderView({
           className="min-h-11 flex-1 rounded-2xl bg-purple-600 px-4 text-base font-semibold text-white disabled:opacity-60"
         >
           Verificar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TextView({
+  q,
+  disabled,
+  onSubmit,
+}: {
+  q: TextInputQuestion;
+  disabled: boolean;
+  onSubmit: ActivityProps["onSubmit"];
+}) {
+  const [value, setValue] = useState("");
+  const stem =
+    q.enunciado ||
+    (q.kind === "DICTATION"
+      ? "Escreva o que você ouvir."
+      : q.kind === "CORRECTION"
+        ? "Corrija a frase abaixo."
+        : "Responda com uma frase curta.");
+  return (
+    <div className="space-y-4">
+      <Stem text={stem} />
+      {q.kind === "DICTATION" && q.audioText && <ListenButton text={q.audioText} label="🔊 Ouvir ditado" />}
+      {q.kind === "CORRECTION" && q.supportText && (
+        <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-900 line-through">{q.supportText}</p>
+      )}
+      <textarea
+        aria-label="Sua resposta"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => setValue(e.target.value)}
+        rows={q.kind === "DICTATION" ? 2 : 3}
+        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base outline-none focus:border-purple-500"
+        placeholder="Escreva aqui"
+        autoComplete="off"
+        autoCapitalize="none"
+      />
+      <SubmitBar
+        disabled={disabled || value.trim().length === 0}
+        onClick={() => onSubmit({ text: value })}
+      />
+    </div>
+  );
+}
+
+function SelfEvalView({
+  q,
+  disabled,
+  onSubmit,
+}: {
+  q: SelfEvalQuestion;
+  disabled: boolean;
+  onSubmit: ActivityProps["onSubmit"];
+}) {
+  const [revealed, setRevealed] = useState(false);
+  const stem =
+    q.enunciado ||
+    (q.kind === "FLASHCARD"
+      ? "Flashcard — pense na resposta."
+      : q.kind === "MICROSCENARIO"
+        ? "Como você responderia neste cenário?"
+        : "Reflita e escreva sua resposta.");
+  return (
+    <div className="space-y-4">
+      <Stem text={stem} />
+      {q.frontText && (
+        <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-800">{q.frontText}</p>
+      )}
+      {q.audioText && <ListenButton text={q.audioText} />}
+      {q.kind === "FLASHCARD" ? (
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+          {revealed ? (
+            <p className="text-base text-slate-900">{q.canonicalAnswerText || "—"}</p>
+          ) : (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => setRevealed(true)}
+              className="min-h-12 w-full rounded-2xl bg-slate-900 text-base font-semibold text-white"
+            >
+              Mostrar resposta
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          {!revealed && q.canonicalAnswerText ? (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => setRevealed(true)}
+              className="min-h-11 w-full rounded-2xl border border-slate-200 bg-white text-sm"
+            >
+              Ver resposta sugerida
+            </button>
+          ) : q.canonicalAnswerText ? (
+            <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">
+              {q.canonicalAnswerText}
+            </p>
+          ) : null}
+        </>
+      )}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onSubmit({ selfEval: "unknown" })}
+          className="min-h-12 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-800"
+        >
+          Ainda não sei
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onSubmit({ selfEval: "know" })}
+          className="min-h-12 rounded-2xl bg-emerald-600 text-sm font-semibold text-white"
+        >
+          Já domino
         </button>
       </div>
     </div>

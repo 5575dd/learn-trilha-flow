@@ -1,11 +1,6 @@
 import type { RawQuestion, QuestionEntry, ValidQuestion, OrderBlock } from "./questionTypes";
 import { SUPPORTED_KINDS } from "./questionTypes";
 
-// Parse `opcoes` (text) with priority:
-// 1. metadados.raw_options if valid array
-// 2. opcoes as JSON array text
-// 3. opcoes split by "|"
-// 4. opcoes split by newline
 export function parseOptions(opcoes: string | null, metadados: unknown): string[] {
   if (metadados && typeof metadados === "object") {
     const raw = (metadados as Record<string, unknown>).raw_options;
@@ -42,6 +37,35 @@ export function parseOptions(opcoes: string | null, metadados: unknown): string[
   return [s];
 }
 
+// For DIALOGUE_ORDER we only split by explicit list markers (never by "." / "?").
+function splitDialogue(text: string): string[] {
+  const s = (text ?? "").trim();
+  if (!s) return [];
+  if (s.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) {
+        return parsed.map((v) => String(v ?? "").trim()).filter((v) => v.length > 0);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (s.includes("|")) {
+    return s
+      .split("|")
+      .map((v) => v.trim())
+      .filter((v) => v.length > 0);
+  }
+  if (s.includes("\n")) {
+    return s
+      .split("\n")
+      .map((v) => v.trim())
+      .filter((v) => v.length > 0);
+  }
+  return [s];
+}
+
 export function parseMetadados(metadados: unknown): Record<string, unknown> {
   if (metadados == null) return {};
   if (typeof metadados === "object") return metadados as Record<string, unknown>;
@@ -56,7 +80,6 @@ export function parseMetadados(metadados: unknown): Record<string, unknown> {
   return {};
 }
 
-// Resolve MC gabarito if it comes as a letter "A", "B)", "(C)" etc.
 export function resolveMCLetter(answer: string, options: string[]): string | null {
   const m = answer.trim().match(/^\(?([A-Ha-h])\)?\.?$/);
   if (!m) return null;
@@ -102,13 +125,15 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
     ordem: row.ordem,
   };
 
-  if (!kind) {
-    return { status: "invalid", id: row.id, tipo: row.tipo, reason: "tipo ausente" };
-  }
+  if (!kind) return { status: "invalid", id: row.id, tipo: row.tipo, reason: "tipo ausente" };
   if (!SUPPORTED_KINDS.includes(kind as never)) {
     return { status: "unsupported", id: row.id, tipo: kind, reason: "tipo não suportado" };
   }
-  if (!canonical) {
+
+  // Self-eval kinds may have empty canonical (FLASHCARD often only has frontText/back).
+  const selfEvalKinds = ["FLASHCARD", "OPEN", "MICROSCENARIO"] as const;
+  const requiresCanonical = !selfEvalKinds.includes(kind as (typeof selfEvalKinds)[number]);
+  if (requiresCanonical && !canonical) {
     return { status: "invalid", id: row.id, tipo: kind, reason: "resposta_correta ausente" };
   }
 
@@ -202,6 +227,60 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
       shuffledBlocks,
       canonicalSequence,
       canonicalAnswerText: canonical,
+      separator: " ",
+    };
+    return { status: "valid", question: q };
+  }
+
+  if (kind === "DIALOGUE_ORDER") {
+    // Canonical sequence lives in resposta_correta (split by | / newline / JSON array).
+    const canonicalSequence = splitDialogue(canonical);
+    if (canonicalSequence.length < 2) {
+      return {
+        status: "invalid",
+        id: row.id,
+        tipo: kind,
+        reason: "sequência de diálogo insuficiente",
+      };
+    }
+    // Blocks come from opcoes / raw_options when present; otherwise fall back to canonical lines.
+    const optRaw = parseOptions(row.opcoes, meta);
+    const blockTexts = optRaw.length >= canonicalSequence.length ? optRaw : canonicalSequence;
+    const availableBlocks = buildOrderBlocks(blockTexts);
+    const shuffledBlocks = makeShuffle(availableBlocks);
+    const q: ValidQuestion = {
+      ...base,
+      kind: "DIALOGUE_ORDER",
+      availableBlocks,
+      shuffledBlocks,
+      canonicalSequence,
+      canonicalAnswerText: canonicalSequence.join(" | "),
+      separator: " | ",
+    };
+    return { status: "valid", question: q };
+  }
+
+  if (kind === "SHORT_ANSWER" || kind === "DICTATION" || kind === "CORRECTION") {
+    const q: ValidQuestion = {
+      ...base,
+      kind,
+      canonicalAnswerText: canonical,
+      audioText: kind === "DICTATION" ? (row.audio_texto ?? "").trim() || undefined : undefined,
+      supportText:
+        kind === "CORRECTION" ? String(meta.original ?? "").trim() || undefined : undefined,
+    };
+    return { status: "valid", question: q };
+  }
+
+  if (kind === "FLASHCARD" || kind === "OPEN" || kind === "MICROSCENARIO") {
+    const frontText =
+      String(meta.front ?? meta.prompt ?? meta.scenario ?? "").trim() || enunciado;
+    const q: ValidQuestion = {
+      ...base,
+      kind,
+      canonicalAnswerText: canonical,
+      frontText: frontText || undefined,
+      audioText: (row.audio_texto ?? "").trim() || undefined,
     };
     return { status: "valid", question: q };
   }
