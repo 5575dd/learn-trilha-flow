@@ -1,20 +1,22 @@
 // Discriminated union of question types the app supports.
-// Everything else is either "unsupported" or "invalid".
+// PRONUNCIATION is intentionally excluded (no microphone).
 
-export type SupportedKind = "MC" | "READING_MC" | "LISTENING_MC" | "TF" | "FB" | "ORDER";
-
-export type UnsupportedKind =
+export type SupportedKind =
+  | "MC"
+  | "READING_MC"
+  | "LISTENING_MC"
+  | "TF"
+  | "FB"
+  | "ORDER"
   | "DIALOGUE_ORDER"
-  | "MATCHING"
-  | "CLASSIFY"
-  | "CORRECTION"
   | "SHORT_ANSWER"
-  | "OPEN"
   | "DICTATION"
+  | "CORRECTION"
   | "FLASHCARD"
-  | "MICROSCENARIO"
-  | "PRONUNCIATION"
-  | "UNKNOWN";
+  | "OPEN"
+  | "MICROSCENARIO";
+
+export type UnsupportedKind = "MATCHING" | "CLASSIFY" | "PRONUNCIATION" | "UNKNOWN";
 
 export interface RawQuestion {
   id: number;
@@ -52,7 +54,7 @@ export interface MCQuestion extends BaseQuestion {
 
 export interface TFQuestion extends BaseQuestion {
   kind: "TF";
-  canonicalAnswerText: string; // "True" | "False" (canonical)
+  canonicalAnswerText: string;
 }
 
 export interface FBQuestion extends BaseQuestion {
@@ -62,19 +64,40 @@ export interface FBQuestion extends BaseQuestion {
 }
 
 export interface OrderBlock {
-  id: string; // per-occurrence id "0:Where", "1:are"
+  id: string;
   text: string;
 }
 
 export interface ORDERQuestion extends BaseQuestion {
-  kind: "ORDER";
-  availableBlocks: OrderBlock[]; // canonical order (never mutated)
-  shuffledBlocks: OrderBlock[]; // presentation copy
-  canonicalSequence: string[]; // words in canonical order (never mutated)
-  canonicalAnswerText: string; // canonical joined form
+  kind: "ORDER" | "DIALOGUE_ORDER";
+  availableBlocks: OrderBlock[];
+  shuffledBlocks: OrderBlock[];
+  canonicalSequence: string[];
+  canonicalAnswerText: string;
+  separator: " " | " | ";
 }
 
-export type ValidQuestion = MCQuestion | TFQuestion | FBQuestion | ORDERQuestion;
+export interface TextInputQuestion extends BaseQuestion {
+  kind: "SHORT_ANSWER" | "DICTATION" | "CORRECTION";
+  canonicalAnswerText: string;
+  audioText?: string;
+  supportText?: string;
+}
+
+export interface SelfEvalQuestion extends BaseQuestion {
+  kind: "FLASHCARD" | "OPEN" | "MICROSCENARIO";
+  canonicalAnswerText: string;
+  frontText?: string;
+  audioText?: string;
+}
+
+export type ValidQuestion =
+  | MCQuestion
+  | TFQuestion
+  | FBQuestion
+  | ORDERQuestion
+  | TextInputQuestion
+  | SelfEvalQuestion;
 
 export type QuestionEntry =
   | { status: "valid"; question: ValidQuestion }
@@ -89,18 +112,18 @@ export const SUPPORTED_KINDS: readonly SupportedKind[] = [
   "TF",
   "FB",
   "ORDER",
+  "DIALOGUE_ORDER",
+  "SHORT_ANSWER",
+  "DICTATION",
+  "CORRECTION",
+  "FLASHCARD",
+  "OPEN",
+  "MICROSCENARIO",
 ] as const;
 
 export const UNSUPPORTED_KINDS: readonly UnsupportedKind[] = [
-  "DIALOGUE_ORDER",
   "MATCHING",
   "CLASSIFY",
-  "CORRECTION",
-  "SHORT_ANSWER",
-  "OPEN",
-  "DICTATION",
-  "FLASHCARD",
-  "MICROSCENARIO",
   "PRONUNCIATION",
   "UNKNOWN",
 ] as const;
