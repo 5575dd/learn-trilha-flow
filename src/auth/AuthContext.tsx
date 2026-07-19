@@ -29,7 +29,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     const sb = getSupabase();
-    let unsub: (() => void) | undefined;
     sb.auth
       .getSession()
       .then(({ data }) => {
@@ -39,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = sb.auth.onAuthStateChange((_event, s) => {
       setSession(s ?? null);
     });
-    unsub = () => data.subscription.unsubscribe();
+    const unsub = () => data.subscription.unsubscribe();
     return unsub;
   }, []);
 
