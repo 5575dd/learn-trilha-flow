@@ -9,38 +9,147 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ConfigRouteImport } from './routes/config'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AulasIndexRouteImport } from './routes/aulas.index'
+import { Route as AulasIdIndexRouteImport } from './routes/aulas.$id.index'
+import { Route as AulasIdResultadoRouteImport } from './routes/aulas.$id.resultado'
+import { Route as AulasIdPrepararRouteImport } from './routes/aulas.$id.preparar'
+import { Route as AulasIdEstudarRouteImport } from './routes/aulas.$id.estudar'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfigRoute = ConfigRouteImport.update({
+  id: '/config',
+  path: '/config',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AulasIndexRoute = AulasIndexRouteImport.update({
+  id: '/aulas/',
+  path: '/aulas/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AulasIdIndexRoute = AulasIdIndexRouteImport.update({
+  id: '/aulas/$id/',
+  path: '/aulas/$id/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AulasIdResultadoRoute = AulasIdResultadoRouteImport.update({
+  id: '/aulas/$id/resultado',
+  path: '/aulas/$id/resultado',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AulasIdPrepararRoute = AulasIdPrepararRouteImport.update({
+  id: '/aulas/$id/preparar',
+  path: '/aulas/$id/preparar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AulasIdEstudarRoute = AulasIdEstudarRouteImport.update({
+  id: '/aulas/$id/estudar',
+  path: '/aulas/$id/estudar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/config': typeof ConfigRoute
+  '/login': typeof LoginRoute
+  '/aulas/': typeof AulasIndexRoute
+  '/aulas/$id/estudar': typeof AulasIdEstudarRoute
+  '/aulas/$id/preparar': typeof AulasIdPrepararRoute
+  '/aulas/$id/resultado': typeof AulasIdResultadoRoute
+  '/aulas/$id/': typeof AulasIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/config': typeof ConfigRoute
+  '/login': typeof LoginRoute
+  '/aulas': typeof AulasIndexRoute
+  '/aulas/$id/estudar': typeof AulasIdEstudarRoute
+  '/aulas/$id/preparar': typeof AulasIdPrepararRoute
+  '/aulas/$id/resultado': typeof AulasIdResultadoRoute
+  '/aulas/$id': typeof AulasIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/config': typeof ConfigRoute
+  '/login': typeof LoginRoute
+  '/aulas/': typeof AulasIndexRoute
+  '/aulas/$id/estudar': typeof AulasIdEstudarRoute
+  '/aulas/$id/preparar': typeof AulasIdPrepararRoute
+  '/aulas/$id/resultado': typeof AulasIdResultadoRoute
+  '/aulas/$id/': typeof AulasIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/config'
+    | '/login'
+    | '/aulas/'
+    | '/aulas/$id/estudar'
+    | '/aulas/$id/preparar'
+    | '/aulas/$id/resultado'
+    | '/aulas/$id/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/config'
+    | '/login'
+    | '/aulas'
+    | '/aulas/$id/estudar'
+    | '/aulas/$id/preparar'
+    | '/aulas/$id/resultado'
+    | '/aulas/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/config'
+    | '/login'
+    | '/aulas/'
+    | '/aulas/$id/estudar'
+    | '/aulas/$id/preparar'
+    | '/aulas/$id/resultado'
+    | '/aulas/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConfigRoute: typeof ConfigRoute
+  LoginRoute: typeof LoginRoute
+  AulasIndexRoute: typeof AulasIndexRoute
+  AulasIdEstudarRoute: typeof AulasIdEstudarRoute
+  AulasIdPrepararRoute: typeof AulasIdPrepararRoute
+  AulasIdResultadoRoute: typeof AulasIdResultadoRoute
+  AulasIdIndexRoute: typeof AulasIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/config': {
+      id: '/config'
+      path: '/config'
+      fullPath: '/config'
+      preLoaderRoute: typeof ConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +157,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/aulas/': {
+      id: '/aulas/'
+      path: '/aulas'
+      fullPath: '/aulas/'
+      preLoaderRoute: typeof AulasIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aulas/$id/': {
+      id: '/aulas/$id/'
+      path: '/aulas/$id'
+      fullPath: '/aulas/$id/'
+      preLoaderRoute: typeof AulasIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aulas/$id/resultado': {
+      id: '/aulas/$id/resultado'
+      path: '/aulas/$id/resultado'
+      fullPath: '/aulas/$id/resultado'
+      preLoaderRoute: typeof AulasIdResultadoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aulas/$id/preparar': {
+      id: '/aulas/$id/preparar'
+      path: '/aulas/$id/preparar'
+      fullPath: '/aulas/$id/preparar'
+      preLoaderRoute: typeof AulasIdPrepararRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aulas/$id/estudar': {
+      id: '/aulas/$id/estudar'
+      path: '/aulas/$id/estudar'
+      fullPath: '/aulas/$id/estudar'
+      preLoaderRoute: typeof AulasIdEstudarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConfigRoute: ConfigRoute,
+  LoginRoute: LoginRoute,
+  AulasIndexRoute: AulasIndexRoute,
+  AulasIdEstudarRoute: AulasIdEstudarRoute,
+  AulasIdPrepararRoute: AulasIdPrepararRoute,
+  AulasIdResultadoRoute: AulasIdResultadoRoute,
+  AulasIdIndexRoute: AulasIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
