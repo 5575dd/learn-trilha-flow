@@ -9,7 +9,11 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "validate": "npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
