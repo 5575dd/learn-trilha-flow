@@ -61,7 +61,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
     case "START_ANSWER":
       if (state.phase !== "ready" && state.phase !== "feedback") return state;
       return { ...state, phase: "answering" };
-    case "SUBMIT":
+    case "SUBMIT": {
       // Idempotency: reject submissions when not answering, or duplicate for same question.
       if (state.phase !== "answering" && state.phase !== "ready") return state;
       if (state.attempts.some((a) => a.attemptId === action.attempt.attemptId)) return state;
@@ -74,6 +74,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
         phase: "feedback",
         attempts: [...state.attempts, action.attempt],
       };
+    }
     case "NEXT": {
       if (state.phase !== "feedback") return state;
       const nextIndex = state.index + 1;
