@@ -1,4 +1,4 @@
-import type { ValidQuestion } from "./questionTypes";
+import type { ValidQuestion } from "../questions/questionTypes";
 import type { EvaluationResult } from "../answers/evaluationTypes";
 
 export type SessionPhase =
