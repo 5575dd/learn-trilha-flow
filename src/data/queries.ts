@@ -24,7 +24,9 @@ export async function listAulas(): Promise<AulaListItem[]> {
 export async function getAula(id: number): Promise<Aula | null> {
   const { data, error } = await getSupabase()
     .from("aulas")
-    .select("id, titulo, tema, resumo, data_aula, status, quantidade_atividades, dados_completos, nome_arquivo")
+    .select(
+      "id, titulo, tema, resumo, data_aula, status, quantidade_atividades, dados_completos, nome_arquivo",
+    )
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;

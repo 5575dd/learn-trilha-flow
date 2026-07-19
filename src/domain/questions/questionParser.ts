@@ -141,11 +141,13 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
       kind,
       options,
       canonicalAnswerText: answerText,
-      supportText: kind === "READING_MC" ? String(meta.support_text ?? "").trim() || undefined : undefined,
-      audioText:
-        kind === "LISTENING_MC" ? (row.audio_texto ?? "").trim() || undefined : undefined,
+      supportText:
+        kind === "READING_MC" ? String(meta.support_text ?? "").trim() || undefined : undefined,
+      audioText: kind === "LISTENING_MC" ? (row.audio_texto ?? "").trim() || undefined : undefined,
     };
-    return repaired ? { status: "repairable", question: q, notes } : { status: "valid", question: q };
+    return repaired
+      ? { status: "repairable", question: q, notes }
+      : { status: "valid", question: q };
   }
 
   if (kind === "TF") {
@@ -180,7 +182,12 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
   if (kind === "ORDER") {
     const options = parseOptions(row.opcoes, meta);
     if (options.length < 2) {
-      return { status: "invalid", id: row.id, tipo: kind, reason: "blocos insuficientes para ORDER" };
+      return {
+        status: "invalid",
+        id: row.id,
+        tipo: kind,
+        reason: "blocos insuficientes para ORDER",
+      };
     }
     const availableBlocks = buildOrderBlocks(options);
     const shuffledBlocks = makeShuffle(availableBlocks);

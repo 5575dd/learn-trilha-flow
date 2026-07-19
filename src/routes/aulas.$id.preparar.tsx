@@ -66,7 +66,15 @@ function PrepareView({ aulaId }: { aulaId: number }) {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone: "ok" | "warn" | "err" }) {
+function Stat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "ok" | "warn" | "err";
+}) {
   const cls =
     tone === "ok"
       ? "bg-emerald-50 text-emerald-800"

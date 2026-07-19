@@ -51,9 +51,7 @@ describe("questionParser", () => {
   });
 
   it("repairs MC letter gabarito 'B'", () => {
-    const entry = parseQuestion(
-      raw({ tipo: "MC", opcoes: "a|b|c|d", resposta_correta: "B" }),
-    );
+    const entry = parseQuestion(raw({ tipo: "MC", opcoes: "a|b|c|d", resposta_correta: "B" }));
     expect(entry.status).toBe("repairable");
     if (entry.status === "repairable" && entry.question.kind === "MC") {
       expect(entry.question.canonicalAnswerText).toBe("b");
@@ -85,7 +83,11 @@ describe("questionParser", () => {
 
   it("ORDER builds blocks with per-occurrence ids", () => {
     const entry = parseQuestion(
-      raw({ tipo: "ORDER", opcoes: "are|Where|they|from", resposta_correta: "Where are they from" }),
+      raw({
+        tipo: "ORDER",
+        opcoes: "are|Where|they|from",
+        resposta_correta: "Where are they from",
+      }),
     );
     if (entry.status !== "valid") throw new Error("expected valid");
     if (entry.question.kind !== "ORDER") throw new Error("expected ORDER");

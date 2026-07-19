@@ -58,7 +58,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   }, []);
 
-  const value = useMemo(() => ({ session, loading, signIn, signOut }), [session, loading, signIn, signOut]);
+  const value = useMemo(
+    () => ({ session, loading, signIn, signOut }),
+    [session, loading, signIn, signOut],
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

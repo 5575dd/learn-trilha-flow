@@ -1,5 +1,11 @@
 import { useState } from "react";
-import type { ValidQuestion, MCQuestion, TFQuestion, FBQuestion, ORDERQuestion } from "@/domain/questions/questionTypes";
+import type {
+  ValidQuestion,
+  MCQuestion,
+  TFQuestion,
+  FBQuestion,
+  ORDERQuestion,
+} from "@/domain/questions/questionTypes";
 
 export interface ActivityProps {
   question: ValidQuestion;
@@ -36,7 +42,15 @@ function speak(text: string) {
   s.speak(u);
 }
 
-function MCView({ q, disabled, onSubmit }: { q: MCQuestion; disabled: boolean; onSubmit: ActivityProps["onSubmit"] }) {
+function MCView({
+  q,
+  disabled,
+  onSubmit,
+}: {
+  q: MCQuestion;
+  disabled: boolean;
+  onSubmit: ActivityProps["onSubmit"];
+}) {
   const [selected, setSelected] = useState<string | null>(null);
   return (
     <div className="space-y-4">
@@ -73,12 +87,23 @@ function MCView({ q, disabled, onSubmit }: { q: MCQuestion; disabled: boolean; o
           );
         })}
       </div>
-      <SubmitBar disabled={disabled || !selected} onClick={() => selected && onSubmit({ text: selected })} />
+      <SubmitBar
+        disabled={disabled || !selected}
+        onClick={() => selected && onSubmit({ text: selected })}
+      />
     </div>
   );
 }
 
-function TFView({ q, disabled, onSubmit }: { q: TFQuestion; disabled: boolean; onSubmit: ActivityProps["onSubmit"] }) {
+function TFView({
+  q,
+  disabled,
+  onSubmit,
+}: {
+  q: TFQuestion;
+  disabled: boolean;
+  onSubmit: ActivityProps["onSubmit"];
+}) {
   return (
     <div className="space-y-4">
       <Stem text={q.enunciado || "Verdadeiro ou falso?"} />
@@ -104,7 +129,15 @@ function TFView({ q, disabled, onSubmit }: { q: TFQuestion; disabled: boolean; o
   );
 }
 
-function FBView({ q, disabled, onSubmit }: { q: FBQuestion; disabled: boolean; onSubmit: ActivityProps["onSubmit"] }) {
+function FBView({
+  q,
+  disabled,
+  onSubmit,
+}: {
+  q: FBQuestion;
+  disabled: boolean;
+  onSubmit: ActivityProps["onSubmit"];
+}) {
   const [value, setValue] = useState("");
   return (
     <div className="space-y-4">
@@ -134,7 +167,10 @@ function FBView({ q, disabled, onSubmit }: { q: FBQuestion; disabled: boolean; o
           ))}
         </div>
       )}
-      <SubmitBar disabled={disabled || value.trim().length === 0} onClick={() => onSubmit({ text: value })} />
+      <SubmitBar
+        disabled={disabled || value.trim().length === 0}
+        onClick={() => onSubmit({ text: value })}
+      />
     </div>
   );
 }

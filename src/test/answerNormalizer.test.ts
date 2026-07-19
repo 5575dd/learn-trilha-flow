@@ -24,8 +24,9 @@ describe("normalizeAnswer", () => {
     expect(answersEqual("banana banana", "grandmother")).toBe(false);
   });
   it("collapses inner whitespace", () => {
-    expect(normalizeAnswer("Where   are   they   from"))
-      .toBe(normalizeAnswer("where are they from"));
+    expect(normalizeAnswer("Where   are   they   from")).toBe(
+      normalizeAnswer("where are they from"),
+    );
   });
   it("extra word breaks equality", () => {
     expect(answersEqual("Where are they from now", "Where are they from")).toBe(false);

@@ -108,15 +108,19 @@ export function parseAulaContent(input: unknown): AulaContent {
     corrected: str(c.corrected),
     note: str(c.note),
   }));
-  const visuals = toArray<Record<string, unknown>>(root.visuals ?? root.visual_resources).map((v) => ({
-    title: str(v.title),
-    description: str(v.description),
-  }));
+  const visuals = toArray<Record<string, unknown>>(root.visuals ?? root.visual_resources).map(
+    (v) => ({
+      title: str(v.title),
+      description: str(v.description),
+    }),
+  );
   const sessions = toArray<Record<string, unknown>>(root.sessions).map((s) => ({
     name: str(s.name),
     description: str(s.description),
   }));
-  const objectives = toArray<unknown>(root.objectives).map((o) => String(o)).filter(Boolean);
+  const objectives = toArray<unknown>(root.objectives)
+    .map((o) => String(o))
+    .filter(Boolean);
   return { objectives, grammar, vocabulary, timeline, dialogues, corrections, visuals, sessions };
 }
 

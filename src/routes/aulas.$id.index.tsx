@@ -34,7 +34,9 @@ function AulaDetail({ id }: { id: number }) {
 
   const a = aula.data;
   const entries = questoes.data ? validateAndRepair(questoes.data) : [];
-  const validCount = entries.filter((e) => e.status === "valid" || e.status === "repairable").length;
+  const validCount = entries.filter(
+    (e) => e.status === "valid" || e.status === "repairable",
+  ).length;
   const invalidCount = entries.filter((e) => e.status === "invalid").length;
   const unsupportedCount = entries.filter((e) => e.status === "unsupported").length;
 
@@ -49,7 +51,9 @@ function AulaDetail({ id }: { id: number }) {
   return (
     <div className="space-y-4">
       <header>
-        <p className="text-xs text-slate-500">{a.data_aula ?? "sem data"} • {a.status}</p>
+        <p className="text-xs text-slate-500">
+          {a.data_aula ?? "sem data"} • {a.status}
+        </p>
         <h1 className="mt-1 text-2xl font-bold text-slate-900">{a.titulo ?? "Aula"}</h1>
         {a.tema && <p className="mt-1 text-sm text-slate-600">{a.tema}</p>}
       </header>
@@ -69,7 +73,11 @@ function AulaDetail({ id }: { id: number }) {
 
       {section(
         "Objetivos",
-        <ul className="list-disc pl-4">{a.content.objectives.map((o, i) => <li key={i}>{o}</li>)}</ul>,
+        <ul className="list-disc pl-4">
+          {a.content.objectives.map((o, i) => (
+            <li key={i}>{o}</li>
+          ))}
+        </ul>,
         a.content.objectives.length > 0,
       )}
 

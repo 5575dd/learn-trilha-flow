@@ -20,7 +20,8 @@ function orderQ(opcoes: string, resposta_correta: string): ORDERQuestion {
     metadados: {},
   };
   const entry = parseQuestion(raw);
-  if (entry.status !== "valid" || entry.question.kind !== "ORDER") throw new Error("expected ORDER");
+  if (entry.status !== "valid" || entry.question.kind !== "ORDER")
+    throw new Error("expected ORDER");
   return entry.question;
 }
 
