@@ -18,16 +18,16 @@ function NotFoundComponent() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Página não encontrada</h2>
+        <h2 className="mt-4 text-xl font-semibold text-foreground">PÃ¡gina nÃ£o encontrada</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          O endereço que você abriu não existe ou foi movido.
+          O endereÃ§o que vocÃª abriu nÃ£o existe ou foi movido.
         </p>
         <div className="mt-6">
           <Link
             to="/"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Ir para o início
+            Ir para o inÃ­cio
           </Link>
         </div>
       </div>
@@ -46,10 +46,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          Não foi possível carregar
+          NÃ£o foi possÃ­vel carregar
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Algo deu errado. Você pode tentar de novo ou voltar para o início.
+          Algo deu errado. VocÃª pode tentar de novo ou voltar para o inÃ­cio.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -65,7 +65,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             href="/"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
-            Ir para o início
+            Ir para o inÃ­cio
           </a>
         </div>
       </div>
@@ -82,20 +82,32 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Transforme cada aula de inglês em uma trilha de revisão prática, visual e inteligente.",
+          "Transforme cada aula de inglÃªs em uma trilha de revisÃ£o prÃ¡tica, visual e inteligente.",
       },
       { property: "og:title", content: "Ingles com vitao" },
       {
         property: "og:description",
         content:
-          "Transforme cada aula de inglês em uma trilha de revisão prática, visual e inteligente.",
+          "Transforme cada aula de inglÃªs em uma trilha de revisÃ£o prÃ¡tica, visual e inteligente.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "Ingles com vitao" },
-      { name: "twitter:description", content: "Transforme cada aula de inglês em uma trilha de revisão prática, visual e inteligente." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/cc7760a4-9dc9-4fef-8fae-031218f53323/id-preview-3f836174--5e9be2e5-fad9-4bbc-9c80-38c551f00093.lovable.app-1784422376087.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/cc7760a4-9dc9-4fef-8fae-031218f53323/id-preview-3f836174--5e9be2e5-fad9-4bbc-9c80-38c551f00093.lovable.app-1784422376087.png" },
+      {
+        name: "twitter:description",
+        content:
+          "Transforme cada aula de inglÃªs em uma trilha de revisÃ£o prÃ¡tica, visual e inteligente.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/cc7760a4-9dc9-4fef-8fae-031218f53323/id-preview-3f836174--5e9be2e5-fad9-4bbc-9c80-38c551f00093.lovable.app-1784422376087.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/cc7760a4-9dc9-4fef-8fae-031218f53323/id-preview-3f836174--5e9be2e5-fad9-4bbc-9c80-38c551f00093.lovable.app-1784422376087.png",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
