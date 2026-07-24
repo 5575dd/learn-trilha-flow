@@ -3,6 +3,7 @@ import {
   initialSession,
   sessionReducer,
   computeStats,
+  questionElapsedMs,
   type AttemptRecord,
 } from "@/domain/session/sessionReducer";
 import type { ValidQuestion } from "@/domain/questions/questionTypes";
@@ -56,6 +57,55 @@ describe("sessionReducer", () => {
     s = sessionReducer(s, { type: "NEXT" });
     expect(s.phase).toBe("completed");
   });
+  it("restores an answered current question in feedback with its prior attempt", () => {
+    const state = sessionReducer(initialSession, {
+      type: "INIT",
+      sessionId: "s1",
+      questions: [q],
+      resumeIndex: 0,
+      resumeAttempts: [attempt],
+    });
+    expect(state.phase).toBe("feedback");
+    expect(state.attempts.find((item) => item.questionId === q.id)).toEqual(attempt);
+  });
+  it("Continue advances exactly once and does not create another attempt", () => {
+    const q2 = { ...q, id: 11 };
+    let state = sessionReducer(initialSession, {
+      type: "INIT",
+      sessionId: "s1",
+      questions: [q, q2],
+      resumeIndex: 0,
+      resumeAttempts: [attempt],
+    });
+    state = sessionReducer(state, { type: "NEXT" });
+    state = sessionReducer(state, { type: "NEXT" });
+    expect(state.index).toBe(1);
+    expect(state.phase).toBe("ready");
+    expect(state.attempts).toEqual([attempt]);
+  });
+  it.each(["MC", "TF"] as const)(
+    "%s remains answerable after continuing a resumed session",
+    (kind) => {
+      const nextQuestion = {
+        ...q,
+        id: 11,
+        kind,
+        ...(kind === "TF"
+          ? { canonicalBoolean: true, canonicalAnswerText: "True" }
+          : { options: ["a", "b"], canonicalAnswerText: "a" }),
+      } as ValidQuestion;
+      let state = sessionReducer(initialSession, {
+        type: "INIT",
+        sessionId: "s1",
+        questions: [q, nextQuestion],
+        resumeAttempts: [attempt],
+      });
+      state = sessionReducer(state, { type: "NEXT" });
+      state = sessionReducer(state, { type: "START_ANSWER" });
+      expect(state.phase).toBe("answering");
+      expect(state.questions[state.index].kind).toBe(kind);
+    },
+  );
   it("computeStats ignores neutral/invalid/unsupported", () => {
     const stats = computeStats({
       ...initialSession,
@@ -69,5 +119,9 @@ describe("sessionReducer", () => {
     expect(stats.correct).toBe(1);
     expect(stats.incorrect).toBe(1);
     expect(stats.rate).toBeCloseTo(0.5);
+  });
+  it("measures each question from the time it was presented", () => {
+    expect(questionElapsedMs(5_000, 6_250)).toBe(1_250);
+    expect(questionElapsedMs(8_000, 7_000)).toBe(0);
   });
 });
