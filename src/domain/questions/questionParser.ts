@@ -127,7 +127,7 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
 
   if (!kind) return { status: "invalid", id: row.id, tipo: row.tipo, reason: "tipo ausente" };
   if (!SUPPORTED_KINDS.includes(kind as never)) {
-    return { status: "unsupported", id: row.id, tipo: kind, reason: "tipo não suportado" };
+    return { status: "unsupported", id: row.id, tipo: kind, reason: "tipo nÃ£o suportado" };
   }
 
   // Self-eval kinds may have empty canonical (FLASHCARD often only has frontText/back).
@@ -143,7 +143,7 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
   if (kind === "MC" || kind === "READING_MC" || kind === "LISTENING_MC") {
     const options = parseOptions(row.opcoes, meta);
     if (options.length < 2) {
-      return { status: "invalid", id: row.id, tipo: kind, reason: "opções insuficientes" };
+      return { status: "invalid", id: row.id, tipo: kind, reason: "opÃ§Ãµes insuficientes" };
     }
     let answerText = canonical;
     const letter = resolveMCLetter(canonical, options);
@@ -158,7 +158,7 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
         status: "invalid",
         id: row.id,
         tipo: kind,
-        reason: "resposta_correta não corresponde a nenhuma opção",
+        reason: "resposta_correta nÃ£o corresponde a nenhuma opÃ§Ã£o",
       };
     }
     const q: ValidQuestion = {
@@ -179,9 +179,9 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
     const raw = canonical.toLowerCase();
     let canonicalTF: "True" | "False" | null = null;
     if (["true", "t", "verdadeiro", "v", "1", "sim"].includes(raw)) canonicalTF = "True";
-    else if (["false", "f", "falso", "0", "não", "nao"].includes(raw)) canonicalTF = "False";
+    else if (["false", "f", "falso", "0", "nÃ£o", "nao"].includes(raw)) canonicalTF = "False";
     if (!canonicalTF) {
-      return { status: "invalid", id: row.id, tipo: kind, reason: "resposta_correta TF inválida" };
+      return { status: "invalid", id: row.id, tipo: kind, reason: "resposta_correta TF invÃ¡lida" };
     }
     if (canonicalTF !== canonical) {
       notes.push(`TF normalizado: ${canonical} -> ${canonicalTF}`);
@@ -218,7 +218,7 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
     const shuffledBlocks = makeShuffle(availableBlocks);
     const canonicalSequence = canonical.split(/\s+/).filter((w) => w.length > 0);
     if (canonicalSequence.length === 0) {
-      return { status: "invalid", id: row.id, tipo: kind, reason: "sequência canônica vazia" };
+      return { status: "invalid", id: row.id, tipo: kind, reason: "sequÃªncia canÃ´nica vazia" };
     }
     const q: ValidQuestion = {
       ...base,
@@ -240,7 +240,7 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
         status: "invalid",
         id: row.id,
         tipo: kind,
-        reason: "sequência de diálogo insuficiente",
+        reason: "sequÃªncia de diÃ¡logo insuficiente",
       };
     }
     // Blocks come from opcoes / raw_options when present; otherwise fall back to canonical lines.
@@ -273,8 +273,7 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
   }
 
   if (kind === "FLASHCARD" || kind === "OPEN" || kind === "MICROSCENARIO") {
-    const frontText =
-      String(meta.front ?? meta.prompt ?? meta.scenario ?? "").trim() || enunciado;
+    const frontText = String(meta.front ?? meta.prompt ?? meta.scenario ?? "").trim() || enunciado;
     const q: ValidQuestion = {
       ...base,
       kind,
@@ -285,5 +284,5 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
     return { status: "valid", question: q };
   }
 
-  return { status: "invalid", id: row.id, tipo: kind, reason: "tipo não tratado" };
+  return { status: "invalid", id: row.id, tipo: kind, reason: "tipo nÃ£o tratado" };
 }
