@@ -58,9 +58,10 @@ describe("questionParser", () => {
     }
   });
 
-  it("classifies OPEN as unsupported", () => {
+  it("supports OPEN as self-evaluation", () => {
     const entry = parseQuestion(raw({ tipo: "OPEN", resposta_correta: "x" }));
-    expect(entry.status).toBe("unsupported");
+    expect(entry.status).toBe("valid");
+    if (entry.status === "valid") expect(entry.question.kind).toBe("OPEN");
   });
 
   it("PRONUNCIATION never becomes a valid question", () => {
