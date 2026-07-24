@@ -16,7 +16,11 @@ function Prepare() {
   return (
     <RequireAuth>
       <AppShell>
-        <PrepareView aulaId={aulaId} />
+        {!Number.isSafeInteger(aulaId) || aulaId <= 0 ? (
+          <p className="text-sm text-rose-600">ID de aula invÃ¡lido.</p>
+        ) : (
+          <PrepareView aulaId={aulaId} />
+        )}
       </AppShell>
     </RequireAuth>
   );
@@ -28,8 +32,8 @@ function PrepareView({ aulaId }: { aulaId: number }) {
     queryFn: () => listQuestoesByAula(aulaId),
   });
 
-  if (questoes.isLoading) return <p className="text-sm text-slate-500">Analisando questões…</p>;
-  if (questoes.error) return <p className="text-sm text-rose-600">Erro ao carregar questões.</p>;
+  if (questoes.isLoading) return <p className="text-sm text-slate-500">Analisando questÃµesâ€¦</p>;
+  if (questoes.error) return <p className="text-sm text-rose-600">Erro ao carregar questÃµes.</p>;
 
   const entries = validateAndRepair(questoes.data ?? []);
   const valids = entries.filter((e) => e.status === "valid" || e.status === "repairable");
@@ -39,19 +43,19 @@ function PrepareView({ aulaId }: { aulaId: number }) {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-2xl font-bold text-slate-900">Preparar sessão</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Preparar sessÃ£o</h1>
         <p className="text-sm text-slate-500">
-          Revisamos as questões desta aula antes de você começar.
+          Revisamos as questÃµes desta aula antes de vocÃª comeÃ§ar.
         </p>
       </header>
       <div className="grid grid-cols-3 gap-2">
         <Stat label="Prontas" value={valids.length} tone="ok" />
         <Stat label="Ignoradas" value={unsupported.length} tone="warn" />
-        <Stat label="Inválidas" value={invalids.length} tone="err" />
+        <Stat label="InvÃ¡lidas" value={invalids.length} tone="err" />
       </div>
       {valids.length === 0 ? (
         <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-800">
-          Nenhuma questão suportada nesta aula.
+          Nenhuma questÃ£o suportada nesta aula.
         </div>
       ) : (
         <Link
@@ -59,7 +63,7 @@ function PrepareView({ aulaId }: { aulaId: number }) {
           params={{ id: String(aulaId) }}
           className="block min-h-12 rounded-2xl bg-purple-600 py-3 text-center text-base font-semibold text-white"
         >
-          Começar ({valids.length})
+          ComeÃ§ar ({valids.length})
         </Link>
       )}
     </div>
