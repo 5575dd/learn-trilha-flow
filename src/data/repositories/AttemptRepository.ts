@@ -27,15 +27,32 @@ export interface AttemptRepository {
   listByUser(userId: string): Promise<AttemptRecord[]>;
 }
 
-function isAttempt(value: unknown): value is AttemptRecord {
+export function isAttemptRecord(value: unknown): value is AttemptRecord {
   if (!value || typeof value !== "object") return false;
   const attempt = value as Partial<AttemptRecord>;
+  const result = attempt.result as Record<string, unknown> | undefined;
   return (
     typeof attempt.attemptId === "string" &&
+    attempt.attemptId.length > 0 &&
     Number.isSafeInteger(attempt.questionId) &&
+    (attempt.questionId ?? 0) > 0 &&
     typeof attempt.timeMs === "number" &&
-    !!attempt.result &&
-    typeof attempt.result === "object"
+    Number.isFinite(attempt.timeMs) &&
+    attempt.timeMs >= 0 &&
+    (attempt.clientCreatedAt === undefined ||
+      (typeof attempt.clientCreatedAt === "number" && Number.isFinite(attempt.clientCreatedAt))) &&
+    (attempt.sessionMode === undefined || typeof attempt.sessionMode === "string") &&
+    !!result &&
+    ["correct", "incorrect", "neutral", "skipped", "invalid"].includes(String(result.status)) &&
+    typeof result.studentAnswerDisplay === "string" &&
+    typeof result.correctAnswerDisplay === "string" &&
+    typeof result.normalizedStudentAnswer === "string" &&
+    typeof result.normalizedCorrectAnswer === "string" &&
+    typeof result.explanation === "string" &&
+    typeof result.diagnosticCode === "string" &&
+    !!result.metadata &&
+    typeof result.metadata === "object" &&
+    !Array.isArray(result.metadata)
   );
 }
 
@@ -53,7 +70,7 @@ export class InMemoryAttemptRepository implements AttemptRepository {
     if (!raw) return [];
     try {
       const parsed: unknown = JSON.parse(raw);
-      if (!Array.isArray(parsed) || !parsed.every(isAttempt)) {
+      if (!Array.isArray(parsed) || !parsed.every(isAttemptRecord)) {
         removeLocal(storageKeys.attempts(userId, sessionId));
         return [];
       }
@@ -154,19 +171,4 @@ export function loadSessionSnapshot(expected: SnapshotExpectation): SessionSnaps
 
 export function clearSessionSnapshot(userId: string, aulaId: number): void {
   removeLocal(storageKeys.snapshot(userId, aulaId));
-}
-
-export class SupabaseAttemptRepository implements AttemptRepository {
-  async save(): Promise<void> {
-    throw new Error("SupabaseAttemptRepository desativado nesta fase (writes disabled).");
-  }
-  async load(): Promise<AttemptRecord[]> {
-    return [];
-  }
-  async clear(): Promise<void> {
-    // Writes remain deliberately disabled in phase 1.
-  }
-  async listByUser(): Promise<AttemptRecord[]> {
-    return [];
-  }
 }
