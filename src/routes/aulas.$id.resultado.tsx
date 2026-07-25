@@ -25,7 +25,7 @@ function ResultRoute() {
     <RequireAuth>
       <AppShell>
         {!Number.isSafeInteger(aulaId) || aulaId <= 0 ? (
-          <p className="text-sm text-rose-600">ID de aula invÃ¡lido.</p>
+          <p className="text-sm text-rose-600">ID de aula inválido.</p>
         ) : (
           <Result aulaId={aulaId} sessionId={s} />
         )}
@@ -43,7 +43,7 @@ function Result({ aulaId, sessionId }: { aulaId: number; sessionId: string }) {
 
   useEffect(() => {
     if (!sessionId || !session?.user.id) {
-      setLoadError("SessÃ£o ausente ou invÃ¡lida.");
+      setLoadError("Sessão ausente ou inválida.");
       setLoading(false);
       return;
     }
@@ -51,22 +51,22 @@ function Result({ aulaId, sessionId }: { aulaId: number; sessionId: string }) {
       .load(session.user.id, sessionId)
       .then((loaded) => {
         if (loaded.length === 0) {
-          setLoadError("Esta sessÃ£o nÃ£o existe ou nÃ£o possui tentativas.");
+          setLoadError("Esta sessão não existe ou não possui tentativas.");
         } else {
           setAttempts(loaded);
         }
       })
-      .catch(() => setLoadError("NÃ£o foi possÃ­vel carregar o resultado salvo."))
+      .catch(() => setLoadError("Não foi possível carregar o resultado salvo."))
       .finally(() => setLoading(false));
   }, [sessionId, session?.user.id]);
 
-  if (loading) return <p className="text-sm text-slate-500">Carregando resultadoâ€¦</p>;
+  if (loading) return <p className="text-sm text-slate-500">Carregando resultado…</p>;
   if (loadError) {
     return (
       <div className="space-y-3">
         <p className="text-sm text-rose-600">{loadError}</p>
         <Link to="/" className="text-sm font-medium text-purple-700">
-          Voltar ao inÃ­cio
+          Voltar ao início
         </Link>
       </div>
     );
@@ -91,7 +91,7 @@ function Result({ aulaId, sessionId }: { aulaId: number; sessionId: string }) {
         <p className="text-sm opacity-80">Taxa de acerto</p>
         <p className="text-5xl font-bold">{rate}%</p>
         <p className="mt-1 text-xs opacity-80">
-          {correct} acertos â€¢ {incorrect} erros â€¢ {ignored} ignoradas
+          {correct} acertos • {incorrect} erros • {ignored} ignoradas
         </p>
       </div>
 
@@ -109,7 +109,7 @@ function Result({ aulaId, sessionId }: { aulaId: number; sessionId: string }) {
         <ul className="space-y-2">
           {errors.map((a) => (
             <li key={a.attemptId} className="rounded-2xl bg-white p-3 shadow-sm">
-              <p className="text-xs text-slate-500">QuestÃ£o #{a.questionId}</p>
+              <p className="text-xs text-slate-500">Questão #{a.questionId}</p>
               <p className="text-sm">
                 <span className="font-medium">Sua resposta:</span> {a.result.studentAnswerDisplay}
               </p>
@@ -130,13 +130,13 @@ function Result({ aulaId, sessionId }: { aulaId: number; sessionId: string }) {
           params={{ id: String(aulaId) }}
           className="min-h-12 rounded-2xl border border-slate-200 bg-white py-3 text-center text-sm font-medium text-slate-800"
         >
-          Voltar Ã  aula
+          Voltar à aula
         </Link>
         <Link
           to="/"
           className="min-h-12 rounded-2xl bg-purple-600 py-3 text-center text-sm font-semibold text-white"
         >
-          InÃ­cio
+          Início
         </Link>
       </div>
     </div>
