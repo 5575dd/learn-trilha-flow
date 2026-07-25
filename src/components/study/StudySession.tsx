@@ -29,6 +29,12 @@ export interface StudySessionProps {
   createSessionId?: () => string;
   onModeSelected?: (mode: Exclude<StudyMode, "normal">) => void;
   onComplete?: (sessionId: string) => void;
+  managedSession?: {
+    id: string;
+    currentIndex: number;
+    onCurrentIndexChange: (index: number) => void;
+    onComplete: () => void;
+  };
 }
 
 const defaultRepository = new InMemoryAttemptRepository();
@@ -42,6 +48,7 @@ export function StudySession({
   createSessionId,
   onModeSelected,
   onComplete,
+  managedSession,
 }: StudySessionProps) {
   const [state, dispatch] = useReducer(sessionReducer, initialSession);
   const [recoverableSession, setRecoverableSession] = useState(false);
@@ -54,13 +61,27 @@ export function StudySession({
 
   const initialize = useCallback(
     async (requestedMode: StudyMode) => {
-      const requestKey = `${userId}:${aulaId}:${questionSignature}:${requestedMode}`;
+      const requestKey = managedSession
+        ? `${userId}:${managedSession.id}:${questionSignature}:managed`
+        : `${userId}:${aulaId}:${questionSignature}:${requestedMode}`;
       if (lastRequestRef.current === requestKey) return;
       lastRequestRef.current = requestKey;
       const initialization = ++initializationRef.current;
       setRecoverableSession(false);
 
       try {
+        if (managedSession) {
+          const attempts = await repository.load(userId, managedSession.id);
+          if (initialization !== initializationRef.current) return;
+          dispatch({
+            type: "INIT",
+            sessionId: managedSession.id,
+            questions,
+            resumeIndex: managedSession.currentIndex,
+            resumeAttempts: attempts,
+          });
+          return;
+        }
         const snapshot = loadSessionSnapshot({ userId, aulaId, questionIds });
         if (snapshot && requestedMode === "normal") {
           if (initialization === initializationRef.current) setRecoverableSession(true);
@@ -94,7 +115,16 @@ export function StudySession({
         });
       }
     },
-    [aulaId, createSessionId, questionIds, questionSignature, questions, repository, userId],
+    [
+      aulaId,
+      createSessionId,
+      managedSession,
+      questionIds,
+      questionSignature,
+      questions,
+      repository,
+      userId,
+    ],
   );
 
   useEffect(() => {
@@ -102,7 +132,12 @@ export function StudySession({
   }, [initialize, mode]);
 
   useEffect(() => {
-    if (state.phase === "loading" || state.phase === "error" || state.phase === "completed") {
+    if (
+      managedSession ||
+      state.phase === "loading" ||
+      state.phase === "error" ||
+      state.phase === "completed"
+    ) {
       return;
     }
     if (!state.sessionId) return;
@@ -120,7 +155,19 @@ export function StudySession({
     } catch {
       dispatch({ type: "ERROR", message: "A sessão não pôde ser salva neste dispositivo." });
     }
-  }, [state.phase, state.index, state.sessionId, state.questions, aulaId, userId]);
+  }, [state.phase, state.index, state.sessionId, state.questions, aulaId, userId, managedSession]);
+
+  useEffect(() => {
+    if (
+      !managedSession ||
+      state.phase === "loading" ||
+      state.phase === "error" ||
+      state.phase === "completed"
+    ) {
+      return;
+    }
+    managedSession.onCurrentIndexChange(state.index);
+  }, [managedSession, state.index, state.phase]);
 
   useEffect(() => {
     if (
@@ -131,13 +178,18 @@ export function StudySession({
       return;
     }
     try {
+      if (managedSession) {
+        completedSessionRef.current = state.sessionId;
+        managedSession.onComplete();
+        return;
+      }
       clearSessionSnapshot(userId, aulaId);
       completedSessionRef.current = state.sessionId;
       onComplete?.(state.sessionId);
     } catch {
       dispatch({ type: "ERROR", message: "Não foi possível finalizar a sessão local." });
     }
-  }, [state.phase, state.sessionId, aulaId, userId, onComplete]);
+  }, [state.phase, state.sessionId, aulaId, userId, onComplete, managedSession]);
 
   const selectMode = useCallback(
     (selectedMode: Exclude<StudyMode, "normal">) => {
