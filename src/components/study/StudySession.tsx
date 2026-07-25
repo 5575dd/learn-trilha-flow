@@ -9,6 +9,7 @@ import {
   type AttemptRepository,
 } from "@/data/repositories/AttemptRepository";
 import { attemptRepository } from "@/data/repositories/DualAttemptRepository";
+import { manifestStore, type ManifestStore } from "@/data/manifestStore";
 import { evaluateAnswer } from "@/domain/answers/answerEvaluator";
 import type { ValidQuestion } from "@/domain/questions/questionTypes";
 import {
@@ -26,6 +27,7 @@ export interface StudySessionProps {
   questions: ValidQuestion[];
   mode: StudyMode;
   repository?: AttemptRepository;
+  store?: ManifestStore;
   createSessionId?: () => string;
   onModeSelected?: (mode: Exclude<StudyMode, "normal">) => void;
   onComplete?: (sessionId: string) => void;
@@ -40,12 +42,21 @@ export interface StudySessionProps {
 
 const defaultRepository = attemptRepository;
 
+function fallbackSessionId(aulaId: number): string {
+  const randomPart =
+    typeof globalThis.crypto?.randomUUID === "function"
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `aula-${aulaId}-${randomPart}`;
+}
+
 export function StudySession({
   aulaId,
   userId,
   questions,
   mode,
   repository = defaultRepository,
+  store = manifestStore,
   createSessionId,
   onModeSelected,
   onComplete,
@@ -84,20 +95,71 @@ export function StudySession({
           return;
         }
         const snapshot = loadSessionSnapshot({ userId, aulaId, questionIds });
+        const ensureManifest = (sessionId: string, currentIndex = 0) => {
+          const existing = store.get(userId, sessionId);
+          const manifest =
+            existing ??
+            store.create({
+              id: sessionId,
+              userId,
+              source: { kind: "aula", aulaId },
+              criteria: { aulaId },
+              questionIds,
+            });
+          if (manifest.status === "completed" || manifest.status === "abandoned") {
+            return manifest;
+          }
+          store.markActive(userId, sessionId);
+          const nextIndex = Math.max(manifest.currentIndex, currentIndex);
+          return store.update(userId, sessionId, { currentIndex: nextIndex }) ?? manifest;
+        };
+        const allocateSessionId = (excludedId?: string) => {
+          const requestedId = createSessionId?.();
+          if (
+            requestedId &&
+            requestedId !== excludedId &&
+            store.get(userId, requestedId) === null
+          ) {
+            return requestedId;
+          }
+          for (let attempt = 0; attempt < 10; attempt++) {
+            const candidate = fallbackSessionId(aulaId);
+            if (candidate !== excludedId && store.get(userId, candidate) === null) {
+              return candidate;
+            }
+          }
+          throw new Error("Não foi possível criar um ID exclusivo para a nova sessão.");
+        };
+
         if (snapshot && requestedMode === "normal") {
-          if (initialization === initializationRef.current) setRecoverableSession(true);
-          return;
+          const manifest = ensureManifest(snapshot.sessionId, snapshot.currentIndex);
+          if (manifest.status === "completed") {
+            clearSessionSnapshot(userId, aulaId);
+          } else {
+            if (initialization === initializationRef.current) setRecoverableSession(true);
+            return;
+          }
         }
 
+        const restartedSessionId =
+          snapshot && requestedMode === "restart" ? snapshot.sessionId : undefined;
         if (snapshot && requestedMode === "restart") {
-          await repository.clear(userId, snapshot.sessionId);
+          ensureManifest(snapshot.sessionId, snapshot.currentIndex);
+          store.abandon(userId, snapshot.sessionId);
           clearSessionSnapshot(userId, aulaId);
         }
 
         const shouldResume = !!snapshot && requestedMode === "resume";
-        const sessionId = shouldResume
-          ? snapshot.sessionId
-          : (createSessionId?.() ?? `aula-${aulaId}-${Date.now()}`);
+        const manifest = shouldResume
+          ? ensureManifest(snapshot.sessionId, snapshot.currentIndex)
+          : (() => {
+              const sessionId = allocateSessionId(restartedSessionId);
+              return ensureManifest(sessionId);
+            })();
+        if (manifest.status === "abandoned") {
+          throw new Error("A sessão não pode ser retomada porque foi abandonada.");
+        }
+        const sessionId = manifest.id;
         const attempts = shouldResume ? await repository.load(userId, sessionId) : [];
         if (initialization !== initializationRef.current) return;
 
@@ -105,7 +167,7 @@ export function StudySession({
           type: "INIT",
           sessionId,
           questions,
-          resumeIndex: shouldResume ? snapshot.currentIndex : 0,
+          resumeIndex: shouldResume ? manifest.currentIndex : 0,
           resumeAttempts: attempts,
         });
       } catch {
@@ -124,6 +186,7 @@ export function StudySession({
       questionSignature,
       questions,
       repository,
+      store,
       userId,
     ],
   );
@@ -153,10 +216,21 @@ export function StudySession({
         currentIndex: state.index,
         updatedAt: Date.now(),
       });
+      store.markActive(userId, state.sessionId);
+      store.update(userId, state.sessionId, { currentIndex: state.index });
     } catch {
       dispatch({ type: "ERROR", message: "A sessão não pôde ser salva neste dispositivo." });
     }
-  }, [state.phase, state.index, state.sessionId, state.questions, aulaId, userId, managedSession]);
+  }, [
+    state.phase,
+    state.index,
+    state.sessionId,
+    state.questions,
+    aulaId,
+    userId,
+    managedSession,
+    store,
+  ]);
 
   useEffect(() => {
     if (
@@ -184,13 +258,14 @@ export function StudySession({
         managedSession.onComplete();
         return;
       }
+      store.markCompleted(userId, state.sessionId);
       clearSessionSnapshot(userId, aulaId);
       completedSessionRef.current = state.sessionId;
       onComplete?.(state.sessionId);
     } catch {
       dispatch({ type: "ERROR", message: "Não foi possível finalizar a sessão local." });
     }
-  }, [state.phase, state.sessionId, aulaId, userId, onComplete, managedSession]);
+  }, [state.phase, state.sessionId, aulaId, userId, onComplete, managedSession, store]);
 
   const selectMode = useCallback(
     (selectedMode: Exclude<StudyMode, "normal">) => {

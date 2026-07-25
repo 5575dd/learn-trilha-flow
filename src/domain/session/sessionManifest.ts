@@ -33,6 +33,7 @@ export interface SessionManifest {
 }
 
 export interface CreateSessionManifestInput {
+  id?: string;
   userId: string;
   source: SessionSource;
   criteria?: SessionCriteria;

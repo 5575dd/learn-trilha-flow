@@ -136,7 +136,7 @@ describe("StudySession integration", () => {
     expect(await repository.load(USER_ID, SESSION_ID)).toHaveLength(1);
   });
 
-  it("restarts directly, clears the old session, and creates a new ready session", async () => {
+  it("restarts directly, preserves the old session, and creates a new ready session", async () => {
     const user = userEvent.setup();
     const repository = new InMemoryAttemptRepository();
     const questions = [firstQuestion, tfQuestion];
@@ -156,7 +156,7 @@ describe("StudySession integration", () => {
     await user.click(await screen.findByRole("button", { name: "Reiniciar" }));
     expect(await screen.findByText(firstQuestion.enunciado)).toBeTruthy();
     expect(screen.queryByRole("status")).toBeNull();
-    expect(await repository.load(USER_ID, SESSION_ID)).toEqual([]);
+    expect(await repository.load(USER_ID, SESSION_ID)).toEqual([previousAttempt]);
     await waitFor(() =>
       expect(
         loadSessionSnapshot({
