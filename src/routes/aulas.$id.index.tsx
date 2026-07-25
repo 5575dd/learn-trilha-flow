@@ -17,7 +17,7 @@ function AulaDetailRoute() {
     <RequireAuth>
       <AppShell>
         {!Number.isSafeInteger(aulaId) || aulaId <= 0 ? (
-          <p className="text-sm text-rose-600">ID de aula invÃ¡lido.</p>
+          <p className="text-sm text-rose-600">ID de aula inválido.</p>
         ) : (
           <AulaDetail id={aulaId} />
         )}
@@ -33,9 +33,9 @@ function AulaDetail({ id }: { id: number }) {
     queryFn: () => listQuestoesByAula(id),
   });
 
-  if (aula.isLoading) return <p className="text-sm text-slate-500">Carregando aulaâ€¦</p>;
+  if (aula.isLoading) return <p className="text-sm text-slate-500">Carregando aula…</p>;
   if (aula.error) return <p className="text-sm text-rose-600">Erro ao carregar aula.</p>;
-  if (!aula.data) return <p className="text-sm text-slate-500">Aula nÃ£o encontrada.</p>;
+  if (!aula.data) return <p className="text-sm text-slate-500">Aula não encontrada.</p>;
 
   const a = aula.data;
   const entries = questoes.data ? validateAndRepair(questoes.data) : [];
@@ -57,7 +57,7 @@ function AulaDetail({ id }: { id: number }) {
     <div className="space-y-4">
       <header>
         <p className="text-xs text-slate-500">
-          {a.data_aula ?? "sem data"} â€¢ {a.status}
+          {a.data_aula ?? "sem data"} • {a.status}
         </p>
         <h1 className="mt-1 text-2xl font-bold text-slate-900">{a.titulo ?? "Aula"}</h1>
         {a.tema && <p className="mt-1 text-sm text-slate-600">{a.tema}</p>}
@@ -72,7 +72,7 @@ function AulaDetail({ id }: { id: number }) {
 
       <section className="grid grid-cols-3 gap-2 text-center">
         <Stat label="Atividades" value={a.quantidade_atividades} />
-        <Stat label="VÃ¡lidas" value={validCount} />
+        <Stat label="Válidas" value={validCount} />
         <Stat label="Ignoradas" value={unsupportedCount + invalidCount} />
       </section>
 
@@ -87,7 +87,7 @@ function AulaDetail({ id }: { id: number }) {
       )}
 
       {section(
-        "GramÃ¡tica",
+        "Gramática",
         a.content.grammar.map((g, i) => (
           <div key={i}>
             <p className="font-medium">{g.name}</p>
@@ -96,7 +96,7 @@ function AulaDetail({ id }: { id: number }) {
               <ul className="mt-1 list-disc pl-4 text-xs text-slate-700">
                 {g.examples.slice(0, 3).map((e, j) => (
                   <li key={j}>
-                    {e.text_english} â€” <span className="text-slate-500">{e.translation_ptbr}</span>
+                    {e.text_english} — <span className="text-slate-500">{e.translation_ptbr}</span>
                   </li>
                 ))}
               </ul>
@@ -107,7 +107,7 @@ function AulaDetail({ id }: { id: number }) {
       )}
 
       {section(
-        "VocabulÃ¡rio",
+        "Vocabulário",
         <ul className="grid grid-cols-2 gap-2 text-xs">
           {a.content.vocabulary.map((v, i) => (
             <li key={i} className="rounded-xl bg-slate-50 p-2">
@@ -120,7 +120,7 @@ function AulaDetail({ id }: { id: number }) {
       )}
 
       {section(
-        "DiÃ¡logos",
+        "Diálogos",
         a.content.dialogues.map((d, i) => (
           <div key={i}>
             {d.title && <p className="font-medium">{d.title}</p>}
@@ -136,12 +136,12 @@ function AulaDetail({ id }: { id: number }) {
       )}
 
       {section(
-        "SessÃµes",
+        "Sessões",
         <ul className="list-disc pl-4">
           {a.content.sessions.map((s, i) => (
             <li key={i}>
               <span className="font-medium">{s.name}</span>
-              {s.description ? ` â€” ${s.description}` : ""}
+              {s.description ? ` — ${s.description}` : ""}
             </li>
           ))}
         </ul>,
@@ -154,7 +154,7 @@ function AulaDetail({ id }: { id: number }) {
         className="fixed inset-x-0 bottom-16 z-10 mx-auto block max-w-md px-4"
       >
         <span className="block min-h-12 rounded-2xl bg-purple-600 py-3 text-center text-base font-semibold text-white shadow-md">
-          Preparar sessÃ£o
+          Preparar sessão
         </span>
       </Link>
     </div>
