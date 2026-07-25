@@ -10,9 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as EstudarRouteImport } from './routes/estudar'
 import { Route as ConfigRouteImport } from './routes/config'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SessaoIndexRouteImport } from './routes/sessao.index'
 import { Route as AulasIndexRouteImport } from './routes/aulas.index'
+import { Route as SessaoResultadoRouteImport } from './routes/sessao.resultado'
 import { Route as AulasIdIndexRouteImport } from './routes/aulas.$id.index'
 import { Route as AulasIdResultadoRouteImport } from './routes/aulas.$id.resultado'
 import { Route as AulasIdPrepararRouteImport } from './routes/aulas.$id.preparar'
@@ -21,6 +24,11 @@ import { Route as AulasIdEstudarRouteImport } from './routes/aulas.$id.estudar'
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EstudarRoute = EstudarRouteImport.update({
+  id: '/estudar',
+  path: '/estudar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfigRoute = ConfigRouteImport.update({
@@ -33,9 +41,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SessaoIndexRoute = SessaoIndexRouteImport.update({
+  id: '/sessao/',
+  path: '/sessao/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AulasIndexRoute = AulasIndexRouteImport.update({
   id: '/aulas/',
   path: '/aulas/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SessaoResultadoRoute = SessaoResultadoRouteImport.update({
+  id: '/sessao/resultado',
+  path: '/sessao/resultado',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AulasIdIndexRoute = AulasIdIndexRouteImport.update({
@@ -62,8 +80,11 @@ const AulasIdEstudarRoute = AulasIdEstudarRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/estudar': typeof EstudarRoute
   '/login': typeof LoginRoute
+  '/sessao/resultado': typeof SessaoResultadoRoute
   '/aulas/': typeof AulasIndexRoute
+  '/sessao/': typeof SessaoIndexRoute
   '/aulas/$id/estudar': typeof AulasIdEstudarRoute
   '/aulas/$id/preparar': typeof AulasIdPrepararRoute
   '/aulas/$id/resultado': typeof AulasIdResultadoRoute
@@ -72,8 +93,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/estudar': typeof EstudarRoute
   '/login': typeof LoginRoute
+  '/sessao/resultado': typeof SessaoResultadoRoute
   '/aulas': typeof AulasIndexRoute
+  '/sessao': typeof SessaoIndexRoute
   '/aulas/$id/estudar': typeof AulasIdEstudarRoute
   '/aulas/$id/preparar': typeof AulasIdPrepararRoute
   '/aulas/$id/resultado': typeof AulasIdResultadoRoute
@@ -83,8 +107,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/estudar': typeof EstudarRoute
   '/login': typeof LoginRoute
+  '/sessao/resultado': typeof SessaoResultadoRoute
   '/aulas/': typeof AulasIndexRoute
+  '/sessao/': typeof SessaoIndexRoute
   '/aulas/$id/estudar': typeof AulasIdEstudarRoute
   '/aulas/$id/preparar': typeof AulasIdPrepararRoute
   '/aulas/$id/resultado': typeof AulasIdResultadoRoute
@@ -95,8 +122,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/config'
+    | '/estudar'
     | '/login'
+    | '/sessao/resultado'
     | '/aulas/'
+    | '/sessao/'
     | '/aulas/$id/estudar'
     | '/aulas/$id/preparar'
     | '/aulas/$id/resultado'
@@ -105,8 +135,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/config'
+    | '/estudar'
     | '/login'
+    | '/sessao/resultado'
     | '/aulas'
+    | '/sessao'
     | '/aulas/$id/estudar'
     | '/aulas/$id/preparar'
     | '/aulas/$id/resultado'
@@ -115,8 +148,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/config'
+    | '/estudar'
     | '/login'
+    | '/sessao/resultado'
     | '/aulas/'
+    | '/sessao/'
     | '/aulas/$id/estudar'
     | '/aulas/$id/preparar'
     | '/aulas/$id/resultado'
@@ -126,8 +162,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfigRoute: typeof ConfigRoute
+  EstudarRoute: typeof EstudarRoute
   LoginRoute: typeof LoginRoute
+  SessaoResultadoRoute: typeof SessaoResultadoRoute
   AulasIndexRoute: typeof AulasIndexRoute
+  SessaoIndexRoute: typeof SessaoIndexRoute
   AulasIdEstudarRoute: typeof AulasIdEstudarRoute
   AulasIdPrepararRoute: typeof AulasIdPrepararRoute
   AulasIdResultadoRoute: typeof AulasIdResultadoRoute
@@ -141,6 +180,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/estudar': {
+      id: '/estudar'
+      path: '/estudar'
+      fullPath: '/estudar'
+      preLoaderRoute: typeof EstudarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/config': {
@@ -157,11 +203,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sessao/': {
+      id: '/sessao/'
+      path: '/sessao'
+      fullPath: '/sessao/'
+      preLoaderRoute: typeof SessaoIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/aulas/': {
       id: '/aulas/'
       path: '/aulas'
       fullPath: '/aulas/'
       preLoaderRoute: typeof AulasIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sessao/resultado': {
+      id: '/sessao/resultado'
+      path: '/sessao/resultado'
+      fullPath: '/sessao/resultado'
+      preLoaderRoute: typeof SessaoResultadoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/aulas/$id/': {
@@ -198,8 +258,11 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfigRoute: ConfigRoute,
+  EstudarRoute: EstudarRoute,
   LoginRoute: LoginRoute,
+  SessaoResultadoRoute: SessaoResultadoRoute,
   AulasIndexRoute: AulasIndexRoute,
+  SessaoIndexRoute: SessaoIndexRoute,
   AulasIdEstudarRoute: AulasIdEstudarRoute,
   AulasIdPrepararRoute: AulasIdPrepararRoute,
   AulasIdResultadoRoute: AulasIdResultadoRoute,
