@@ -7,7 +7,9 @@ import {
   saveSessionSnapshot,
   type SessionSnapshot,
 } from "@/data/repositories/AttemptRepository";
-import { clearTransientUserStorage, storageKeys } from "@/data/localStorage";
+import { clearTransientInterfaceStorage, storageKeys } from "@/data/localStorage";
+import { LocalManifestStore } from "@/data/manifestStore";
+import { PersistentSyncQueue } from "@/data/sync/syncQueue";
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
 
 const attempt: AttemptRecord = {
@@ -38,7 +40,10 @@ const snapshot: SessionSnapshot = {
 };
 
 describe("local attempt persistence", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
 
   it("dedupes an attempt ID", async () => {
     const repo = new InMemoryAttemptRepository();
@@ -92,18 +97,47 @@ describe("local attempt persistence", () => {
     expect(loadSessionSnapshot({ userId: "user-a", aulaId: 7, questionIds: [1, 2] })).toBeNull();
   });
 
-  it("logout cleanup removes only the current user's transient data", () => {
-    localStorage.setItem(storageKeys.snapshot("user-a", 7), "{}");
-    localStorage.setItem(storageKeys.attempts("user-a", "s"), "[]");
-    localStorage.setItem(storageKeys.snapshot("user-b", 7), "{}");
-    localStorage.setItem(storageKeys.manifests("user-a"), "[]");
-    localStorage.setItem(storageKeys.manifests("user-b"), "[]");
-    clearTransientUserStorage("user-a");
-    expect(localStorage.getItem(storageKeys.snapshot("user-a", 7))).toBeNull();
-    expect(localStorage.getItem(storageKeys.attempts("user-a", "s"))).toBeNull();
-    expect(localStorage.getItem(storageKeys.snapshot("user-b", 7))).not.toBeNull();
-    expect(localStorage.getItem(storageKeys.manifests("user-a"))).toBeNull();
-    expect(localStorage.getItem(storageKeys.manifests("user-b"))).not.toBeNull();
+  it("logout preserves durable user data and clears only transient interface state", async () => {
+    const attemptRepository = new InMemoryAttemptRepository();
+    await attemptRepository.save("user-a", "s", attempt);
+    saveSessionSnapshot(snapshot);
+    localStorage.setItem(storageKeys.progress("user-a", "course"), '{"completed":1}');
+
+    const queue = new PersistentSyncQueue();
+    queue.enqueue({ userId: "user-a", sessionId: "s", attempt });
+
+    const manifests = new LocalManifestStore({
+      createId: () => "manifest-a",
+      now: () => 10,
+    });
+    manifests.create({
+      userId: "user-a",
+      source: { kind: "quick" },
+      questionIds: [1, 2],
+    });
+
+    sessionStorage.setItem("trilha.ui.study-panel", "open");
+    sessionStorage.setItem("other.application", "preserve");
+
+    clearTransientInterfaceStorage();
+
+    const reloadedAttempts = new InMemoryAttemptRepository();
+    const reloadedQueue = new PersistentSyncQueue();
+    const reloadedManifests = new LocalManifestStore();
+    expect(await reloadedAttempts.load("user-a", "s")).toEqual([attempt]);
+    expect(reloadedQueue.list("user-a")).toMatchObject([{ attemptId: "a1", status: "pending" }]);
+    expect(reloadedManifests.findRecoverable("user-a")?.id).toBe("manifest-a");
+    expect(loadSessionSnapshot({ userId: "user-a", aulaId: 7, questionIds: [1, 2] })).toEqual(
+      snapshot,
+    );
+    expect(localStorage.getItem(storageKeys.progress("user-a", "course"))).not.toBeNull();
+
+    expect(await reloadedAttempts.load("user-b", "s")).toEqual([]);
+    expect(reloadedQueue.list("user-b")).toEqual([]);
+    expect(reloadedManifests.listByUser("user-b")).toEqual([]);
+
+    expect(sessionStorage.getItem("trilha.ui.study-panel")).toBeNull();
+    expect(sessionStorage.getItem("other.application")).toBe("preserve");
   });
 
   it("propagates localStorage write failures", () => {

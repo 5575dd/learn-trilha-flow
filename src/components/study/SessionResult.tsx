@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import { manifestStore, type ManifestStore } from "@/data/manifestStore";
-import {
-  InMemoryAttemptRepository,
-  type AttemptRepository,
-} from "@/data/repositories/AttemptRepository";
+import type { AttemptRepository } from "@/data/repositories/AttemptRepository";
+import { attemptRepository } from "@/data/repositories/DualAttemptRepository";
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
 import type { SessionManifest } from "@/domain/session/sessionManifest";
 import { buildErrorQuestionIdsFromIds } from "@/domain/session/sessionSourceBuilder";
 
-const defaultRepository = new InMemoryAttemptRepository();
+const defaultRepository = attemptRepository;
 
 export function SessionResult({
   manifest,

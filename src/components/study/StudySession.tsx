@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import { Activity, type ActivityProps } from "@/components/activities/Activity";
 import { FeedbackPanel } from "@/components/feedback/FeedbackPanel";
 import {
-  InMemoryAttemptRepository,
   SESSION_SNAPSHOT_SCHEMA_VERSION,
   clearSessionSnapshot,
   loadSessionSnapshot,
   saveSessionSnapshot,
   type AttemptRepository,
 } from "@/data/repositories/AttemptRepository";
+import { attemptRepository } from "@/data/repositories/DualAttemptRepository";
 import { evaluateAnswer } from "@/domain/answers/answerEvaluator";
 import type { ValidQuestion } from "@/domain/questions/questionTypes";
 import {
@@ -34,10 +34,11 @@ export interface StudySessionProps {
     currentIndex: number;
     onCurrentIndexChange: (index: number) => void;
     onComplete: () => void;
+    mode?: string;
   };
 }
 
-const defaultRepository = new InMemoryAttemptRepository();
+const defaultRepository = attemptRepository;
 
 export function StudySession({
   aulaId,
@@ -247,6 +248,8 @@ export function StudySession({
         questionId: current.id,
         result,
         timeMs: questionElapsedMs(state.questionPresentedAt),
+        clientCreatedAt: Date.now(),
+        sessionMode: managedSession?.mode ?? "aula",
       };
       await repository.save(userId, state.sessionId, attempt);
       dispatch({ type: "SUBMIT", attempt });

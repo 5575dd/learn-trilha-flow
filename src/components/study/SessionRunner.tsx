@@ -2,16 +2,14 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { StudySession } from "@/components/study/StudySession";
 import { listQuestoesByIds, type QuestionsByIdsResult } from "@/data/queries";
-import {
-  InMemoryAttemptRepository,
-  type AttemptRepository,
-} from "@/data/repositories/AttemptRepository";
+import type { AttemptRepository } from "@/data/repositories/AttemptRepository";
+import { attemptRepository } from "@/data/repositories/DualAttemptRepository";
 import { manifestStore, type ManifestStore } from "@/data/manifestStore";
 import { validateAndRepair } from "@/domain/questions/questionValidator";
 import type { ValidQuestion } from "@/domain/questions/questionTypes";
 import type { SessionManifest } from "@/domain/session/sessionManifest";
 
-const defaultRepository = new InMemoryAttemptRepository();
+const defaultRepository = attemptRepository;
 
 export interface SessionRunnerProps {
   manifest: SessionManifest;
@@ -95,8 +93,9 @@ export function SessionRunner({
       currentIndex: initialRunnerIndex,
       onCurrentIndexChange: updateIndex,
       onComplete: complete,
+      mode: manifest.source.kind,
     }),
-    [complete, initialRunnerIndex, manifest.id, updateIndex],
+    [complete, initialRunnerIndex, manifest.id, manifest.source.kind, updateIndex],
   );
 
   if (manifest.userId !== userId) {

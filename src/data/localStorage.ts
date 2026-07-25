@@ -23,6 +23,7 @@ export const storageKeys = {
   progress: (userId: string, name: string) =>
     `${PREFIX}.user.${segment(userId)}.progress.${segment(name)}`,
   manifests: (userId: string) => `${PREFIX}.user.${segment(userId)}.manifests`,
+  syncQueue: (userId: string) => `${PREFIX}.user.${segment(userId)}.sync.attempts`,
 };
 
 export function readLocal(key: string): string | null {
@@ -55,21 +56,15 @@ export function removeLocal(key: string): void {
   }
 }
 
-export function clearTransientUserStorage(userId: string): void {
+export function clearTransientInterfaceStorage(): void {
   if (typeof window === "undefined") return;
-  const prefix = `${PREFIX}.user.${segment(userId)}.`;
   try {
-    for (let index = window.localStorage.length - 1; index >= 0; index--) {
-      const key = window.localStorage.key(index);
-      if (
-        key?.startsWith(prefix) &&
-        (key.includes(".session.") || key.includes(".attempts.") || key.endsWith(".manifests"))
-      ) {
-        window.localStorage.removeItem(key);
-      }
+    for (let index = window.sessionStorage.length - 1; index >= 0; index--) {
+      const key = window.sessionStorage.key(index);
+      if (key?.startsWith(`${PREFIX}.`)) window.sessionStorage.removeItem(key);
     }
   } catch (error) {
-    console.error("[storage] user cleanup failed", { name: errorName(error) });
+    console.error("[storage] transient interface cleanup failed", { name: errorName(error) });
     throw new LocalPersistenceError("remove", error);
   }
 }

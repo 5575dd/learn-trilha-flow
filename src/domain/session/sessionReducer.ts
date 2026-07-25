@@ -16,6 +16,8 @@ export interface AttemptRecord {
   questionId: number;
   result: EvaluationResult;
   timeMs: number;
+  clientCreatedAt?: number;
+  sessionMode?: string;
 }
 
 export interface SessionState {
@@ -146,6 +148,7 @@ export function computeStats(state: SessionState) {
         incorrect++;
         break;
       case "neutral":
+      case "skipped":
         neutral++;
         break;
       case "invalid":

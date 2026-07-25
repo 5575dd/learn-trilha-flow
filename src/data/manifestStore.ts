@@ -5,6 +5,8 @@ import {
   type CreateSessionManifestInput,
   type SessionManifest,
 } from "@/domain/session/sessionManifest";
+import { SupabaseManifestRepository } from "@/data/repositories/SupabaseManifestRepository";
+import { WRITES_ENABLED } from "@/lib/supabase";
 
 export interface ManifestStore {
   create(input: CreateSessionManifestInput): SessionManifest;
@@ -195,4 +197,74 @@ function uniqueValidIds(ids: readonly number[]): number[] {
   return [...new Set(ids.filter((id) => Number.isSafeInteger(id) && id > 0))];
 }
 
-export const manifestStore = new LocalManifestStore();
+export class DualManifestStore implements ManifestStore {
+  constructor(
+    private readonly local: ManifestStore,
+    private readonly remote: SupabaseManifestRepository,
+    private readonly writesEnabled = true,
+  ) {}
+
+  create(input: CreateSessionManifestInput): SessionManifest {
+    return this.sync(this.local.create(input));
+  }
+
+  get(userId: string, manifestId: string): SessionManifest | null {
+    return this.local.get(userId, manifestId);
+  }
+
+  update(
+    userId: string,
+    manifestId: string,
+    changes: { currentIndex?: number },
+  ): SessionManifest | null {
+    const manifest = this.local.update(userId, manifestId, changes);
+    return manifest ? this.sync(manifest) : null;
+  }
+
+  listByUser(userId: string): SessionManifest[] {
+    return this.local.listByUser(userId);
+  }
+
+  markActive(userId: string, manifestId: string): SessionManifest | null {
+    const manifest = this.local.markActive(userId, manifestId);
+    return manifest ? this.sync(manifest) : null;
+  }
+
+  markCompleted(userId: string, manifestId: string): SessionManifest | null {
+    const manifest = this.local.markCompleted(userId, manifestId);
+    return manifest ? this.sync(manifest) : null;
+  }
+
+  abandon(userId: string, manifestId: string): SessionManifest | null {
+    const manifest = this.local.abandon(userId, manifestId);
+    return manifest ? this.sync(manifest) : null;
+  }
+
+  remove(userId: string, manifestId: string): void {
+    this.local.remove(userId, manifestId);
+  }
+
+  findRecoverable(userId: string): SessionManifest | null {
+    return this.local.findRecoverable(userId);
+  }
+
+  subscribe(userId: string, listener: () => void): () => void {
+    return this.local.subscribe(userId, listener);
+  }
+
+  private sync(manifest: SessionManifest): SessionManifest {
+    if (this.writesEnabled) {
+      void this.remote.upsert(manifest).catch((error) => {
+        console.error("[manifest-sync] remote update failed", {
+          name: error instanceof Error ? error.name : "UnknownError",
+        });
+      });
+    }
+    return manifest;
+  }
+}
+
+const localManifestStore = new LocalManifestStore();
+export const manifestStore: ManifestStore = WRITES_ENABLED
+  ? new DualManifestStore(localManifestStore, new SupabaseManifestRepository(), true)
+  : localManifestStore;
