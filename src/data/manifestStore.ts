@@ -53,9 +53,11 @@ export class LocalManifestStore implements ManifestStore {
   create(input: CreateSessionManifestInput): SessionManifest {
     const questionIds = Object.freeze(uniqueValidIds(input.questionIds));
     const now = this.now();
+    const id = input.id ?? this.createId();
+    if (!id) throw new Error("O ID do manifest não pode ser vazio.");
     const manifest: SessionManifest = {
       schemaVersion: SESSION_MANIFEST_SCHEMA_VERSION,
-      id: this.createId(),
+      id,
       userId: input.userId,
       source: input.source,
       criteria: input.criteria ?? {},

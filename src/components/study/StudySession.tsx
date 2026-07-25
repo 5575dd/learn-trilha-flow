@@ -9,6 +9,7 @@ import {
   type AttemptRepository,
 } from "@/data/repositories/AttemptRepository";
 import { attemptRepository } from "@/data/repositories/DualAttemptRepository";
+import { manifestStore, type ManifestStore } from "@/data/manifestStore";
 import { evaluateAnswer } from "@/domain/answers/answerEvaluator";
 import type { ValidQuestion } from "@/domain/questions/questionTypes";
 import {
@@ -26,6 +27,7 @@ export interface StudySessionProps {
   questions: ValidQuestion[];
   mode: StudyMode;
   repository?: AttemptRepository;
+  store?: ManifestStore;
   createSessionId?: () => string;
   onModeSelected?: (mode: Exclude<StudyMode, "normal">) => void;
   onComplete?: (sessionId: string) => void;
@@ -46,6 +48,7 @@ export function StudySession({
   questions,
   mode,
   repository = defaultRepository,
+  store = manifestStore,
   createSessionId,
   onModeSelected,
   onComplete,
@@ -84,20 +87,52 @@ export function StudySession({
           return;
         }
         const snapshot = loadSessionSnapshot({ userId, aulaId, questionIds });
+        const ensureManifest = (sessionId: string, currentIndex = 0) => {
+          const existing = store.get(userId, sessionId);
+          const manifest =
+            existing ??
+            store.create({
+              id: sessionId,
+              userId,
+              source: { kind: "aula", aulaId },
+              criteria: { aulaId },
+              questionIds,
+            });
+          if (manifest.status === "completed" || manifest.status === "abandoned") {
+            return manifest;
+          }
+          store.markActive(userId, sessionId);
+          const nextIndex = Math.max(manifest.currentIndex, currentIndex);
+          return store.update(userId, sessionId, { currentIndex: nextIndex }) ?? manifest;
+        };
+
         if (snapshot && requestedMode === "normal") {
-          if (initialization === initializationRef.current) setRecoverableSession(true);
-          return;
+          const manifest = ensureManifest(snapshot.sessionId, snapshot.currentIndex);
+          if (manifest.status === "completed") {
+            clearSessionSnapshot(userId, aulaId);
+          } else {
+            if (initialization === initializationRef.current) setRecoverableSession(true);
+            return;
+          }
         }
 
         if (snapshot && requestedMode === "restart") {
+          store.abandon(userId, snapshot.sessionId);
           await repository.clear(userId, snapshot.sessionId);
           clearSessionSnapshot(userId, aulaId);
         }
 
         const shouldResume = !!snapshot && requestedMode === "resume";
-        const sessionId = shouldResume
-          ? snapshot.sessionId
-          : (createSessionId?.() ?? `aula-${aulaId}-${Date.now()}`);
+        const manifest = shouldResume
+          ? ensureManifest(snapshot.sessionId, snapshot.currentIndex)
+          : (() => {
+              const sessionId = createSessionId?.() ?? `aula-${aulaId}-${Date.now()}`;
+              return ensureManifest(sessionId);
+            })();
+        if (manifest.status === "abandoned") {
+          throw new Error("A sessão não pode ser retomada porque foi abandonada.");
+        }
+        const sessionId = manifest.id;
         const attempts = shouldResume ? await repository.load(userId, sessionId) : [];
         if (initialization !== initializationRef.current) return;
 
@@ -105,7 +140,7 @@ export function StudySession({
           type: "INIT",
           sessionId,
           questions,
-          resumeIndex: shouldResume ? snapshot.currentIndex : 0,
+          resumeIndex: shouldResume ? manifest.currentIndex : 0,
           resumeAttempts: attempts,
         });
       } catch {
@@ -124,6 +159,7 @@ export function StudySession({
       questionSignature,
       questions,
       repository,
+      store,
       userId,
     ],
   );
@@ -153,10 +189,21 @@ export function StudySession({
         currentIndex: state.index,
         updatedAt: Date.now(),
       });
+      store.markActive(userId, state.sessionId);
+      store.update(userId, state.sessionId, { currentIndex: state.index });
     } catch {
       dispatch({ type: "ERROR", message: "A sessão não pôde ser salva neste dispositivo." });
     }
-  }, [state.phase, state.index, state.sessionId, state.questions, aulaId, userId, managedSession]);
+  }, [
+    state.phase,
+    state.index,
+    state.sessionId,
+    state.questions,
+    aulaId,
+    userId,
+    managedSession,
+    store,
+  ]);
 
   useEffect(() => {
     if (
@@ -184,13 +231,14 @@ export function StudySession({
         managedSession.onComplete();
         return;
       }
+      store.markCompleted(userId, state.sessionId);
       clearSessionSnapshot(userId, aulaId);
       completedSessionRef.current = state.sessionId;
       onComplete?.(state.sessionId);
     } catch {
       dispatch({ type: "ERROR", message: "Não foi possível finalizar a sessão local." });
     }
-  }, [state.phase, state.sessionId, aulaId, userId, onComplete, managedSession]);
+  }, [state.phase, state.sessionId, aulaId, userId, onComplete, managedSession, store]);
 
   const selectMode = useCallback(
     (selectedMode: Exclude<StudyMode, "normal">) => {
