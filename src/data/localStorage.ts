@@ -17,10 +17,12 @@ function segment(value: string | number): string {
 export const storageKeys = {
   attempts: (userId: string, sessionId: string) =>
     `${PREFIX}.user.${segment(userId)}.attempts.${segment(sessionId)}`,
+  attemptsPrefix: (userId: string) => `${PREFIX}.user.${segment(userId)}.attempts.`,
   snapshot: (userId: string, aulaId: number) =>
     `${PREFIX}.user.${segment(userId)}.session.${segment(aulaId)}`,
   progress: (userId: string, name: string) =>
     `${PREFIX}.user.${segment(userId)}.progress.${segment(name)}`,
+  manifests: (userId: string) => `${PREFIX}.user.${segment(userId)}.manifests`,
 };
 
 export function readLocal(key: string): string | null {
@@ -59,7 +61,10 @@ export function clearTransientUserStorage(userId: string): void {
   try {
     for (let index = window.localStorage.length - 1; index >= 0; index--) {
       const key = window.localStorage.key(index);
-      if (key?.startsWith(prefix) && (key.includes(".session.") || key.includes(".attempts."))) {
+      if (
+        key?.startsWith(prefix) &&
+        (key.includes(".session.") || key.includes(".attempts.") || key.endsWith(".manifests"))
+      ) {
         window.localStorage.removeItem(key);
       }
     }
