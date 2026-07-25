@@ -51,7 +51,7 @@ export async function listQuestoesByAula(aulaId: number): Promise<RawQuestion[]>
 
 export function assertValidId(id: number, label: string): void {
   if (!Number.isSafeInteger(id) || id <= 0) {
-    throw new Error(`ID de ${label} invÃ¡lido.`);
+    throw new Error(`ID de ${label} inválido.`);
   }
 }
 
