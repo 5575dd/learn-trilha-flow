@@ -98,12 +98,16 @@ describe("local attempt persistence", () => {
     localStorage.setItem(storageKeys.snapshot("user-b", 7), "{}");
     localStorage.setItem(storageKeys.manifests("user-a"), "[]");
     localStorage.setItem(storageKeys.manifests("user-b"), "[]");
+    localStorage.setItem(storageKeys.syncQueue("user-a"), "[]");
+    localStorage.setItem(storageKeys.syncQueue("user-b"), "[]");
     clearTransientUserStorage("user-a");
     expect(localStorage.getItem(storageKeys.snapshot("user-a", 7))).toBeNull();
     expect(localStorage.getItem(storageKeys.attempts("user-a", "s"))).toBeNull();
     expect(localStorage.getItem(storageKeys.snapshot("user-b", 7))).not.toBeNull();
     expect(localStorage.getItem(storageKeys.manifests("user-a"))).toBeNull();
     expect(localStorage.getItem(storageKeys.manifests("user-b"))).not.toBeNull();
+    expect(localStorage.getItem(storageKeys.syncQueue("user-a"))).toBeNull();
+    expect(localStorage.getItem(storageKeys.syncQueue("user-b"))).not.toBeNull();
   });
 
   it("propagates localStorage write failures", () => {
