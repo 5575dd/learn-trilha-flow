@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "validate": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "validate": "bun run typecheck && bun run lint && bun run test && bun run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

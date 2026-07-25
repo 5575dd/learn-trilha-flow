@@ -53,6 +53,17 @@ describe("local attempt persistence", () => {
     expect(await repo.load("user-b", "s1")).toEqual([]);
   });
 
+  it("lists all local attempts for one user without mixing users", async () => {
+    const repo = new InMemoryAttemptRepository();
+    await repo.save("user-a", "s1", attempt);
+    await repo.save("user-a", "s2", { ...attempt, attemptId: "a2", questionId: 2 });
+    await repo.save("user-b", "s1", { ...attempt, attemptId: "other" });
+    expect((await repo.listByUser("user-a")).map((item) => item.attemptId).sort()).toEqual([
+      "a1",
+      "a2",
+    ]);
+  });
+
   it("restart can clear the old session without clearing the new one", async () => {
     const repo = new InMemoryAttemptRepository();
     await repo.save("user-a", "old", attempt);
@@ -85,10 +96,14 @@ describe("local attempt persistence", () => {
     localStorage.setItem(storageKeys.snapshot("user-a", 7), "{}");
     localStorage.setItem(storageKeys.attempts("user-a", "s"), "[]");
     localStorage.setItem(storageKeys.snapshot("user-b", 7), "{}");
+    localStorage.setItem(storageKeys.manifests("user-a"), "[]");
+    localStorage.setItem(storageKeys.manifests("user-b"), "[]");
     clearTransientUserStorage("user-a");
     expect(localStorage.getItem(storageKeys.snapshot("user-a", 7))).toBeNull();
     expect(localStorage.getItem(storageKeys.attempts("user-a", "s"))).toBeNull();
     expect(localStorage.getItem(storageKeys.snapshot("user-b", 7))).not.toBeNull();
+    expect(localStorage.getItem(storageKeys.manifests("user-a"))).toBeNull();
+    expect(localStorage.getItem(storageKeys.manifests("user-b"))).not.toBeNull();
   });
 
   it("propagates localStorage write failures", () => {
