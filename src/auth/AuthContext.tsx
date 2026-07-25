@@ -10,6 +10,7 @@ import {
 import type { Session } from "@supabase/supabase-js";
 import { getSupabase } from "@/lib/supabase";
 import { clearTransientInterfaceStorage } from "@/data/localStorage";
+import { hydrateManifestStore } from "@/data/manifestStore";
 
 interface AuthContextValue {
   session: Session | null;
@@ -42,6 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsub = () => data.subscription.unsubscribe();
     return unsub;
   }, []);
+
+  useEffect(() => {
+    const userId = session?.user.id;
+    if (userId) void hydrateManifestStore(userId);
+  }, [session?.user.id]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await getSupabase().auth.signInWithPassword({ email, password });

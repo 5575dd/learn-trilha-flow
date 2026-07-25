@@ -6,6 +6,8 @@ import {
   type SessionManifest,
 } from "@/domain/session/sessionManifest";
 import { SupabaseManifestRepository } from "@/data/repositories/SupabaseManifestRepository";
+import { manifestSyncQueue, PersistentManifestSyncQueue } from "@/data/sync/manifestSyncQueue";
+import { mergeManifestSnapshots } from "@/domain/session/mergeManifests";
 import { WRITES_ENABLED } from "@/lib/supabase";
 
 export interface ManifestStore {
@@ -21,6 +23,7 @@ export interface ManifestStore {
   markCompleted(userId: string, manifestId: string): SessionManifest | null;
   abandon(userId: string, manifestId: string): SessionManifest | null;
   remove(userId: string, manifestId: string): void;
+  saveSnapshot(manifest: SessionManifest): SessionManifest;
   findRecoverable(userId: string): SessionManifest | null;
   subscribe(userId: string, listener: () => void): () => void;
 }
@@ -40,6 +43,7 @@ function defaultId(): string {
 export class LocalManifestStore implements ManifestStore {
   private readonly now: () => number;
   private readonly createId: () => string;
+  private readonly listeners = new Map<string, Set<() => void>>();
 
   constructor(options: LocalManifestStoreOptions = {}) {
     this.now = options.now ?? Date.now;
@@ -149,6 +153,33 @@ export class LocalManifestStore implements ManifestStore {
     if (next.length !== manifests.length) this.persist(userId, next);
   }
 
+  saveSnapshot(manifest: SessionManifest): SessionManifest {
+    if (!isSessionManifest(manifest)) {
+      throw new Error("Manifest inválido para armazenamento local.");
+    }
+    const manifests = this.listByUser(manifest.userId);
+    const index = manifests.findIndex((item) => item.id === manifest.id);
+    const snapshot: SessionManifest = {
+      ...manifest,
+      source: { ...manifest.source },
+      criteria: { ...manifest.criteria },
+      questionIds: Object.freeze([...manifest.questionIds]),
+    };
+    if (index >= 0) {
+      const existing = manifests[index];
+      const sameIds =
+        existing.questionIds.length === snapshot.questionIds.length &&
+        existing.questionIds.every((id, itemIndex) => id === snapshot.questionIds[itemIndex]);
+      if (!sameIds) throw new Error("Os IDs congelados da sessão não podem ser alterados.");
+      const next = [...manifests];
+      next[index] = snapshot;
+      this.persist(manifest.userId, next);
+    } else {
+      this.persist(manifest.userId, [...manifests, snapshot]);
+    }
+    return snapshot;
+  }
+
   findRecoverable(userId: string): SessionManifest | null {
     return (
       this.listByUser(userId)
@@ -164,11 +195,18 @@ export class LocalManifestStore implements ManifestStore {
   subscribe(userId: string, listener: () => void): () => void {
     if (typeof window === "undefined") return () => undefined;
     const key = storageKeys.manifests(userId);
+    const listeners = this.listeners.get(userId) ?? new Set<() => void>();
+    listeners.add(listener);
+    this.listeners.set(userId, listeners);
     const handler = (event: StorageEvent) => {
       if (event.key === key) listener();
     };
     window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
+    return () => {
+      listeners.delete(listener);
+      if (listeners.size === 0) this.listeners.delete(userId);
+      window.removeEventListener("storage", handler);
+    };
   }
 
   private change(
@@ -190,6 +228,7 @@ export class LocalManifestStore implements ManifestStore {
 
   private persist(userId: string, manifests: SessionManifest[]): void {
     writeLocal(storageKeys.manifests(userId), JSON.stringify(manifests));
+    this.listeners.get(userId)?.forEach((listener) => listener());
   }
 }
 
@@ -198,10 +237,14 @@ function uniqueValidIds(ids: readonly number[]): number[] {
 }
 
 export class DualManifestStore implements ManifestStore {
+  private readonly unscheduled = new Map<string, Map<string, SessionManifest>>();
+  private readonly hydrationInFlight = new Map<string, Promise<ManifestHydrationResult>>();
+
   constructor(
     private readonly local: ManifestStore,
     private readonly remote: SupabaseManifestRepository,
     private readonly writesEnabled = true,
+    private readonly queue: PersistentManifestSyncQueue = manifestSyncQueue,
   ) {}
 
   create(input: CreateSessionManifestInput): SessionManifest {
@@ -244,6 +287,10 @@ export class DualManifestStore implements ManifestStore {
     this.local.remove(userId, manifestId);
   }
 
+  saveSnapshot(manifest: SessionManifest): SessionManifest {
+    return this.local.saveSnapshot(manifest);
+  }
+
   findRecoverable(userId: string): SessionManifest | null {
     return this.local.findRecoverable(userId);
   }
@@ -254,17 +301,173 @@ export class DualManifestStore implements ManifestStore {
 
   private sync(manifest: SessionManifest): SessionManifest {
     if (this.writesEnabled) {
-      void this.remote.upsert(manifest).catch((error) => {
-        console.error("[manifest-sync] remote update failed", {
-          name: error instanceof Error ? error.name : "UnknownError",
-        });
-      });
+      try {
+        this.queue.enqueue(manifest.userId, manifest);
+      } catch {
+        const pending = this.unscheduled.get(manifest.userId) ?? new Map();
+        pending.set(manifest.id, manifest);
+        this.unscheduled.set(manifest.userId, pending);
+        this.queue.reportPersistenceFailure(manifest.userId);
+        return manifest;
+      }
+      void this.flush(manifest.userId);
     }
     return manifest;
   }
+
+  async flush(userId: string, force = false): Promise<void> {
+    if (!this.writesEnabled) return;
+    const pending = this.unscheduled.get(userId);
+    if (pending) {
+      try {
+        for (const manifest of pending.values()) {
+          this.queue.enqueue(userId, manifest);
+          pending.delete(manifest.id);
+        }
+        if (pending.size === 0) {
+          this.unscheduled.delete(userId);
+          this.queue.clearPersistenceFailure(userId);
+        }
+      } catch {
+        this.queue.reportPersistenceFailure(userId);
+        return;
+      }
+    }
+    let pass = 0;
+    do {
+      await this.queue.flush(
+        userId,
+        async (snapshot) => {
+          await this.remote.upsert(snapshot);
+        },
+        force,
+      );
+      pass++;
+    } while (
+      pass < 10 &&
+      this.queue
+        .list(userId)
+        .some((item) => item.status === "pending" && (force || item.nextRetryAt <= Date.now()))
+    );
+  }
+
+  registerOnlineFlush(userId: string): () => void {
+    if (!this.writesEnabled) return () => undefined;
+    return this.queue.registerOnlineFlush(userId, async (snapshot) => {
+      await this.remote.upsert(snapshot);
+    });
+  }
+
+  hydrate(
+    userId: string,
+    options: { manifestId?: string; includeHistory?: boolean } = {},
+  ): Promise<ManifestHydrationResult> {
+    const key = `${userId}:${options.manifestId ?? "*"}:${options.includeHistory ? "all" : "open"}`;
+    const running = this.hydrationInFlight.get(key);
+    if (running) return running;
+    const promise = this.runHydration(userId, options).finally(() => {
+      this.hydrationInFlight.delete(key);
+    });
+    this.hydrationInFlight.set(key, promise);
+    return promise;
+  }
+
+  private async runHydration(
+    userId: string,
+    options: { manifestId?: string; includeHistory?: boolean },
+  ): Promise<ManifestHydrationResult> {
+    if (!this.writesEnabled || (typeof navigator !== "undefined" && navigator.onLine === false)) {
+      return {
+        manifests: this.local.listByUser(userId),
+        localOnly: true,
+        conflicts: 0,
+      };
+    }
+
+    try {
+      const remoteManifests = options.manifestId
+        ? [await this.remote.get(userId, options.manifestId)].filter(
+            (manifest): manifest is SessionManifest => manifest !== null,
+          )
+        : options.includeHistory
+          ? await this.remote.listByUser(userId)
+          : await this.remote.listRecoverable(userId);
+      let conflicts = 0;
+      for (const remoteManifest of remoteManifests) {
+        try {
+          const local = this.local.get(userId, remoteManifest.id);
+          const merged = mergeManifestSnapshots({
+            expectedUserId: userId,
+            local,
+            remote: remoteManifest,
+            localPending:
+              this.queue.hasPending(userId, remoteManifest.id) ||
+              this.unscheduled.get(userId)?.has(remoteManifest.id) === true,
+          });
+          if (!local || merged.updatedAt !== local.updatedAt || merged.status !== local.status) {
+            this.local.saveSnapshot(merged);
+          }
+        } catch {
+          conflicts++;
+        }
+      }
+      return {
+        manifests: this.local.listByUser(userId),
+        localOnly: false,
+        conflicts,
+        ...(conflicts > 0
+          ? { error: "Uma sessão recuperada entrou em conflito com os dados deste dispositivo." }
+          : {}),
+      };
+    } catch {
+      return {
+        manifests: this.local.listByUser(userId),
+        localOnly: true,
+        conflicts: 0,
+        error: "Não foi possível recuperar sessões remotas. Os dados locais continuam disponíveis.",
+      };
+    }
+  }
+}
+
+export interface ManifestHydrationResult {
+  manifests: SessionManifest[];
+  localOnly: boolean;
+  conflicts: number;
+  error?: string;
 }
 
 const localManifestStore = new LocalManifestStore();
 export const manifestStore: ManifestStore = WRITES_ENABLED
-  ? new DualManifestStore(localManifestStore, new SupabaseManifestRepository(), true)
+  ? new DualManifestStore(
+      localManifestStore,
+      new SupabaseManifestRepository(),
+      true,
+      manifestSyncQueue,
+    )
   : localManifestStore;
+
+export function hydrateManifestStore(
+  userId: string,
+  options: { manifestId?: string; includeHistory?: boolean } = {},
+): Promise<ManifestHydrationResult> {
+  return manifestStore instanceof DualManifestStore
+    ? manifestStore.hydrate(userId, options)
+    : Promise.resolve({
+        manifests: manifestStore.listByUser(userId),
+        localOnly: true,
+        conflicts: 0,
+      });
+}
+
+export function flushManifestSyncQueue(userId: string, force = false): Promise<void> {
+  return manifestStore instanceof DualManifestStore
+    ? manifestStore.flush(userId, force)
+    : Promise.resolve();
+}
+
+export function registerManifestOnlineFlush(userId: string): () => void {
+  return manifestStore instanceof DualManifestStore
+    ? manifestStore.registerOnlineFlush(userId)
+    : () => undefined;
+}

@@ -148,7 +148,8 @@ describe("phase 3A migration contract", () => {
       "bigint",
       "acertou",
       "ON DELETE SET NULL",
-      "migration não foi executada",
+      "migration foi executada manualmente",
+      "11 verificações operacionais",
       "VITE_ENABLE_SUPABASE_WRITES=false",
     ]) {
       expect(documentation).toContain(text);

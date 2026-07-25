@@ -1,5 +1,6 @@
 import {
   InMemoryAttemptRepository,
+  type AttemptEntry,
   type AttemptRepository,
 } from "@/data/repositories/AttemptRepository";
 import { SupabaseAttemptRepository } from "@/data/repositories/SupabaseAttemptRepository";
@@ -48,12 +49,20 @@ export class DualAttemptRepository implements AttemptRepository {
     return this.local.load(userId, sessionId);
   }
 
+  async loadEntries(userId: string, sessionId: string): Promise<AttemptEntry[]> {
+    return this.local.loadEntries(userId, sessionId);
+  }
+
   async clear(userId: string, sessionId: string): Promise<void> {
     await this.local.clear(userId, sessionId);
   }
 
   async listByUser(userId: string): Promise<AttemptRecord[]> {
     return this.local.listByUser(userId);
+  }
+
+  async listEntriesByUser(userId: string): Promise<AttemptEntry[]> {
+    return this.local.listEntriesByUser(userId);
   }
 
   async flush(userId: string, force = false): Promise<void> {
@@ -87,8 +96,8 @@ export class DualAttemptRepository implements AttemptRepository {
   }
 }
 
-const localAttemptRepository = new InMemoryAttemptRepository();
-const remoteAttemptRepository = new SupabaseAttemptRepository();
+export const localAttemptRepository = new InMemoryAttemptRepository();
+export const remoteAttemptRepository = new SupabaseAttemptRepository();
 
 export const attemptRepository = WRITES_ENABLED
   ? new DualAttemptRepository(localAttemptRepository, remoteAttemptRepository, attemptSyncQueue, {

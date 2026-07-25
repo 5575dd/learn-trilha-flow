@@ -1,0 +1,31 @@
+# Fase 3B — revisão, progresso e recuperação
+
+## Estado
+
+A migration da Fase 3A (`20260725_remote_attempts_spaced_repetition.sql`) já foi executada manualmente no projeto Supabase correto. As 11 verificações operacionais informadas passaram, incluindo tabelas, colunas, foreign key, RLS, RPC e privilégios de `authenticated`/`anon`.
+
+Esta entrega não executa SQL, não cria migration e não altera o schema.
+
+## Implementado
+
+- projeção local de revisão a partir de tentativas deduplicadas;
+- leitura validada de `revisoes_questoes` e agenda dual local/remota;
+- card funcional **Revisão do dia** e manifests com source `dueReview`;
+- fila persistente de manifests, isolada por usuário, com deduplicação, retry, backoff e flush no evento `online`;
+- hidratação e consolidação de sessões remotas sem regressão de status ou `currentIndex`;
+- consolidação pura de tentativas locais e remotas por `attemptId`;
+- resultado de sessão recuperável em outro dispositivo;
+- rota autenticada `/progresso`, com métricas, histórico recente e desempenho por tipo quando há dados;
+- indicador de sincronização que considera separadamente tentativas e sessões/manifests.
+
+Quando a leitura remota falha ou o dispositivo está offline, o aplicativo preserva o funcionamento local e informa que os dados exibidos podem estar limitados ao dispositivo.
+
+## Flag e ativação
+
+`VITE_ENABLE_SUPABASE_WRITES=false` permanece sendo o padrão. Nesse modo não há chamadas de escrita remota e as leituras de tentativas, revisões e manifests remotos também permanecem desabilitadas para manter comportamento previsível.
+
+Ainda não houve validação end-to-end em produção desta implementação. O próximo passo é uma ativação controlada da flag em ambiente autorizado, seguida de teste real de criação, sincronização, recuperação e resultado entre dispositivos.
+
+## Fora do escopo
+
+Não foram adicionados PWA, service worker, cache offline de assets, Realtime, notificações push, motor Python, redesign geral ou biblioteca nova de gráficos.

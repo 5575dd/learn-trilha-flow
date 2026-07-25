@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isAttemptRecord, type AttemptRepository } from "@/data/repositories/AttemptRepository";
+import {
+  isAttemptRecord,
+  type AttemptEntry,
+  type AttemptRepository,
+} from "@/data/repositories/AttemptRepository";
 import { isEvaluationStatus } from "@/domain/answers/evaluationTypes";
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
 import { getSupabase } from "@/lib/supabase";
@@ -219,6 +223,10 @@ export class SupabaseAttemptRepository implements AttemptRepository {
   }
 
   async load(userId: string, sessionId: string): Promise<AttemptRecord[]> {
+    return (await this.loadEntries(userId, sessionId)).map((entry) => entry.attempt);
+  }
+
+  async loadEntries(userId: string, sessionId: string): Promise<AttemptEntry[]> {
     if (!userId || !sessionId) return [];
     const { data, error } = await this.clientFactory()
       .from("tentativas")
@@ -231,6 +239,10 @@ export class SupabaseAttemptRepository implements AttemptRepository {
   }
 
   async listByUser(userId: string): Promise<AttemptRecord[]> {
+    return (await this.listEntriesByUser(userId)).map((entry) => entry.attempt);
+  }
+
+  async listEntriesByUser(userId: string): Promise<AttemptEntry[]> {
     if (!userId) return [];
     const { data, error } = await this.clientFactory()
       .from("tentativas")
@@ -245,19 +257,26 @@ export class SupabaseAttemptRepository implements AttemptRepository {
     // Remote attempts are immutable audit records. Restart only clears the local snapshot.
   }
 
-  private parseRows(data: unknown, userId: string, sessionId?: string): AttemptRecord[] {
+  private parseRows(data: unknown, userId: string, sessionId?: string): AttemptEntry[] {
     if (!Array.isArray(data)) {
       throw new RemoteAttemptError("Resposta remota malformada.", { retryable: false });
     }
-    const byId = new Map<string, AttemptRecord>();
+    const byId = new Map<string, AttemptEntry>();
     for (const value of data) {
-      const attempt = reconstructAttempt(value as RemoteAttemptRow, userId, sessionId);
-      if (!attempt) {
+      const row = value as RemoteAttemptRow;
+      const attempt = reconstructAttempt(row, userId, sessionId);
+      if (!attempt || typeof row.session_id !== "string") {
         throw new RemoteAttemptError("Tentativa remota malformada ou de outro usuário.", {
           retryable: false,
         });
       }
-      if (!byId.has(attempt.attemptId)) byId.set(attempt.attemptId, attempt);
+      if (!byId.has(attempt.attemptId)) {
+        byId.set(attempt.attemptId, {
+          userId,
+          sessionId: row.session_id,
+          attempt,
+        });
+      }
     }
     return [...byId.values()];
   }

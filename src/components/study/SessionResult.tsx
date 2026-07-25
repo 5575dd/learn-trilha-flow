@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { manifestStore, type ManifestStore } from "@/data/manifestStore";
 import type { AttemptRepository } from "@/data/repositories/AttemptRepository";
-import { attemptRepository } from "@/data/repositories/DualAttemptRepository";
+import { consolidatedAttemptRepository } from "@/data/repositories/ConsolidatedAttemptRepository";
+import { attemptSyncQueue } from "@/data/sync/syncQueue";
+import { manifestSyncQueue } from "@/data/sync/manifestSyncQueue";
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
 import type { SessionManifest } from "@/domain/session/sessionManifest";
 import { buildErrorQuestionIdsFromIds } from "@/domain/session/sessionSourceBuilder";
 
-const defaultRepository = attemptRepository;
+const defaultRepository = consolidatedAttemptRepository;
 
 export function SessionResult({
   manifest,
@@ -24,6 +26,7 @@ export function SessionResult({
   const [attempts, setAttempts] = useState<AttemptRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [pendingSync, setPendingSync] = useState(false);
 
   useEffect(() => {
     if (manifest.userId !== userId) {
@@ -37,6 +40,26 @@ export function SessionResult({
       .catch(() => setError("Não foi possível carregar o resultado."))
       .finally(() => setLoading(false));
   }, [manifest.id, manifest.userId, repository, userId]);
+
+  useEffect(() => {
+    const refreshPending = () => {
+      try {
+        setPendingSync(
+          attemptSyncQueue.list(userId).some((item) => item.sessionId === manifest.id) ||
+            manifestSyncQueue.hasPending(userId, manifest.id),
+        );
+      } catch {
+        setPendingSync(true);
+      }
+    };
+    refreshPending();
+    const unsubscribeAttempts = attemptSyncQueue.subscribe(userId, refreshPending);
+    const unsubscribeManifests = manifestSyncQueue.subscribe(userId, refreshPending);
+    return () => {
+      unsubscribeAttempts();
+      unsubscribeManifests();
+    };
+  }, [manifest.id, userId]);
 
   if (loading) return <p className="text-sm text-slate-500">Carregando resultado…</p>;
   if (error) return <p className="text-sm text-rose-600">{error}</p>;
@@ -79,6 +102,11 @@ export function SessionResult({
           {correct} acertos • {incorrect} erros • {ignored} ignoradas
         </p>
       </div>
+      {pendingSync && (
+        <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+          Ainda há dados desta sessão aguardando sincronização.
+        </p>
+      )}
       {errorIds.length > 0 ? (
         <button
           type="button"

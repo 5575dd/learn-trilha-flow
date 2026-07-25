@@ -172,6 +172,19 @@ export class SupabaseManifestRepository {
     return data.map((row) => parseManifest(row as RemoteManifestRow, userId));
   }
 
+  async listByUser(userId: string): Promise<SessionManifest[]> {
+    const { data, error } = await this.clientFactory()
+      .from("sessoes_estudo")
+      .select(MANIFEST_COLUMNS)
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false });
+    if (error) throw remoteError(error);
+    if (!Array.isArray(data)) {
+      throw new RemoteManifestError("Resposta remota de sessões inválida.", false);
+    }
+    return data.map((row) => parseManifest(row as RemoteManifestRow, userId));
+  }
+
   private async update(
     userId: string,
     manifestId: string,

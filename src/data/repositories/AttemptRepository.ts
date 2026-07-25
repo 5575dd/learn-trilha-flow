@@ -24,8 +24,16 @@ export interface SnapshotExpectation {
 export interface AttemptRepository {
   save(userId: string, sessionId: string, attempt: AttemptRecord): Promise<void>;
   load(userId: string, sessionId: string): Promise<AttemptRecord[]>;
+  loadEntries(userId: string, sessionId: string): Promise<AttemptEntry[]>;
   clear(userId: string, sessionId: string): Promise<void>;
   listByUser(userId: string): Promise<AttemptRecord[]>;
+  listEntriesByUser(userId: string): Promise<AttemptEntry[]>;
+}
+
+export interface AttemptEntry {
+  userId: string;
+  sessionId: string;
+  attempt: AttemptRecord;
 }
 
 export function isAttemptRecord(value: unknown): value is AttemptRecord {
@@ -98,20 +106,38 @@ export class InMemoryAttemptRepository implements AttemptRepository {
     return this.hydrate(userId, sessionId);
   }
 
+  async loadEntries(userId: string, sessionId: string): Promise<AttemptEntry[]> {
+    return (await this.load(userId, sessionId)).map((attempt) => ({
+      userId,
+      sessionId,
+      attempt,
+    }));
+  }
+
   async clear(userId: string, sessionId: string): Promise<void> {
     removeLocal(storageKeys.attempts(userId, sessionId));
     this.store.delete(this.cacheKey(userId, sessionId));
   }
 
   async listByUser(userId: string): Promise<AttemptRecord[]> {
+    return (await this.listEntriesByUser(userId)).map((entry) => entry.attempt);
+  }
+
+  async listEntriesByUser(userId: string): Promise<AttemptEntry[]> {
     if (typeof window === "undefined") return [];
     const keyPrefix = storageKeys.attemptsPrefix(userId);
-    const attempts: AttemptRecord[] = [];
+    const attempts: AttemptEntry[] = [];
     for (let index = 0; index < window.localStorage.length; index++) {
       const key = window.localStorage.key(index);
       if (!key?.startsWith(keyPrefix)) continue;
       const sessionId = decodeURIComponent(key.slice(keyPrefix.length));
-      attempts.push(...this.hydrate(userId, sessionId));
+      attempts.push(
+        ...this.hydrate(userId, sessionId).map((attempt) => ({
+          userId,
+          sessionId,
+          attempt,
+        })),
+      );
     }
     return attempts;
   }

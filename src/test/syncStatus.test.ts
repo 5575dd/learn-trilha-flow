@@ -35,12 +35,12 @@ function item(status: SyncQueueItem["status"]): SyncQueueItem {
 }
 
 describe("sync status", () => {
-  it("uses wording scoped explicitly to attempt synchronization", () => {
+  it("uses wording that covers attempts and session manifests", () => {
     expect(SYNC_DISPLAY_LABELS).toEqual({
       local: "Salvo neste dispositivo",
-      syncing: "Sincronizando tentativas",
-      synced: "Tentativas sincronizadas",
-      failed: "Falha ao sincronizar tentativas",
+      syncing: "Sincronizando",
+      synced: "Sincronizado",
+      failed: "Falha ao sincronizar",
       offline: "Offline — salvo neste dispositivo",
     });
   });
@@ -95,5 +95,46 @@ describe("sync status", () => {
       }),
     ).not.toBe("synced");
     expect(deriveSyncDisplayState({ writesEnabled: true, online: true, items: [] })).toBe("synced");
+  });
+
+  it("does not report synchronized while a manifest is pending or failed", () => {
+    const manifestItem = {
+      userId: "user-a",
+      manifestId: "manifest-1",
+      snapshot: {
+        schemaVersion: 1 as const,
+        id: "manifest-1",
+        userId: "user-a",
+        source: { kind: "quick" as const },
+        criteria: {},
+        questionIds: Object.freeze([1]),
+        status: "created" as const,
+        currentIndex: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      operation: "upsert" as const,
+      status: "pending" as const,
+      retryCount: 0,
+      createdAt: 1,
+      updatedAt: 1,
+      nextRetryAt: 1,
+    };
+    expect(
+      deriveSyncDisplayState({
+        writesEnabled: true,
+        online: true,
+        items: [],
+        manifestItems: [manifestItem],
+      }),
+    ).toBe("syncing");
+    expect(
+      deriveSyncDisplayState({
+        writesEnabled: true,
+        online: true,
+        items: [],
+        manifestItems: [{ ...manifestItem, status: "failed" }],
+      }),
+    ).toBe("failed");
   });
 });

@@ -2,7 +2,7 @@
 
 ## Estado desta entrega
 
-A migration `20260725_remote_attempts_spaced_repetition.sql` foi criada para revisão. A migration não foi executada no projeto Supabase e não foi validada contra o banco real. As escritas remotas continuam desabilitadas por padrão com:
+A migration `20260725_remote_attempts_spaced_repetition.sql` foi executada manualmente no projeto Supabase correto antes da Fase 3B. As 11 verificações operacionais informadas passaram, cobrindo tabelas, colunas, foreign key, RLS, RPC e privilégios. As escritas remotas continuam desabilitadas por padrão com:
 
 ```text
 VITE_ENABLE_SUPABASE_WRITES=false
@@ -14,26 +14,26 @@ O aplicativo permanece local-first e continua funcionando somente com o armazena
 
 O schema real foi consultado fora desta entrega e informado como:
 
-| Tabela       | Coluna             | Tipo        | Nullability | Default/identidade                     |
-| ------------ | ------------------ | ----------- | ----------- | -------------------------------------- |
-| `questoes`   | `id`               | `integer`   | NOT NULL    | `nextval('questoes_id_seq')`           |
-| `questoes`   | `tipo`             | `text`      | nullable    | —                                      |
-| `questoes`   | `resposta_correta` | `text`      | nullable    | —                                      |
-| `questoes`   | `aula_id`          | `bigint`    | nullable    | —                                      |
-| `tentativas` | `id`               | `bigint`    | NOT NULL    | identity; não é enviado pela RPC       |
-| `tentativas` | `questao_id`       | `bigint`    | NOT NULL    | —                                      |
-| `tentativas` | `aula_id`          | `bigint`    | nullable    | —                                      |
-| `tentativas` | `tipo`             | `text`      | nullable    | —                                      |
-| `tentativas` | `resposta_aluno`   | `text`      | nullable    | —                                      |
-| `tentativas` | `resposta_correta` | `text`      | nullable    | —                                      |
-| `tentativas` | `acertou`          | `boolean`   | NOT NULL    | sem default antes desta migration      |
-| `tentativas` | `feedback`         | `text`      | nullable    | —                                      |
-| `tentativas` | `tempo_segundos`   | `integer`   | NOT NULL    | `0`                                    |
-| `tentativas` | `respondido_em`    | `timestamptz` | NOT NULL  | `now()`                                |
-| `tentativas` | `modo_estudo`      | `text`      | nullable    | —                                      |
-| `tentativas` | `dicas_usadas`     | `integer`   | NOT NULL    | `0`                                    |
-| `tentativas` | `score`            | `integer`   | nullable    | —                                      |
-| `tentativas` | `metadados`        | `jsonb`     | NOT NULL    | `'{}'::jsonb`                          |
+| Tabela       | Coluna             | Tipo          | Nullability | Default/identidade                |
+| ------------ | ------------------ | ------------- | ----------- | --------------------------------- |
+| `questoes`   | `id`               | `integer`     | NOT NULL    | `nextval('questoes_id_seq')`      |
+| `questoes`   | `tipo`             | `text`        | nullable    | —                                 |
+| `questoes`   | `resposta_correta` | `text`        | nullable    | —                                 |
+| `questoes`   | `aula_id`          | `bigint`      | nullable    | —                                 |
+| `tentativas` | `id`               | `bigint`      | NOT NULL    | identity; não é enviado pela RPC  |
+| `tentativas` | `questao_id`       | `bigint`      | NOT NULL    | —                                 |
+| `tentativas` | `aula_id`          | `bigint`      | nullable    | —                                 |
+| `tentativas` | `tipo`             | `text`        | nullable    | —                                 |
+| `tentativas` | `resposta_aluno`   | `text`        | nullable    | —                                 |
+| `tentativas` | `resposta_correta` | `text`        | nullable    | —                                 |
+| `tentativas` | `acertou`          | `boolean`     | NOT NULL    | sem default antes desta migration |
+| `tentativas` | `feedback`         | `text`        | nullable    | —                                 |
+| `tentativas` | `tempo_segundos`   | `integer`     | NOT NULL    | `0`                               |
+| `tentativas` | `respondido_em`    | `timestamptz` | NOT NULL    | `now()`                           |
+| `tentativas` | `modo_estudo`      | `text`        | nullable    | —                                 |
+| `tentativas` | `dicas_usadas`     | `integer`     | NOT NULL    | `0`                               |
+| `tentativas` | `score`            | `integer`     | nullable    | —                                 |
+| `tentativas` | `metadados`        | `jsonb`       | NOT NULL    | `'{}'::jsonb`                     |
 
 No início, antes de qualquer alteração, a migration confere a existência, os tipos e a nullability compatível dessas colunas, além de exigir que `tentativas.id` seja identity. `questoes.id` é `integer` e `tentativas.questao_id` é `bigint`; inserir o primeiro no segundo é uma conversão segura do PostgreSQL. Em divergência, o script interrompe com mensagem explícita e não tenta converter dados históricos.
 
@@ -67,7 +67,7 @@ Nova tabela para o espelho remoto de `SessionManifest`:
 - `question_ids` com o mesmo tipo de `questoes.id`;
 - `status`, `current_index` e timestamps.
 
-Um trigger impede qualquer alteração posterior de `question_ids`. A aplicação ainda usa o manifest local como resposta imediata; recuperação completa entre dispositivos fica para a Fase 3B.
+Um trigger impede qualquer alteração posterior de `question_ids`. A aplicação usa o manifest local como resposta imediata; a Fase 3B adicionou fila persistente, reconciliação e recuperação entre dispositivos.
 
 ### `tentativas`
 
@@ -143,9 +143,11 @@ O logout limpa somente chaves de interface `trilha.*` no `sessionStorage`. Dados
 
 Outro usuário autenticado consulta apenas as próprias chaves. Quando o usuário original entra novamente, seus dados locais podem ser hidratados e a fila pendente pode retomar a sincronização. O logout não depende de flush remoto para evitar perda.
 
-O indicador também delimita seu escopo: `Sincronizando tentativas`, `Tentativas sincronizadas` e `Falha ao sincronizar tentativas` não prometem sincronização completa dos manifests, que continuam best-effort nesta fase.
+O indicador da Fase 3B considera separadamente tentativas e manifests e só informa `Sincronizado` quando as duas filas estão vazias e sem falha.
 
-## Como executar manualmente
+## Registro da execução manual
+
+A execução já ocorreu fora do fluxo automatizado desta entrega. Não reaplique a migration por meio da Fase 3B. O checklist abaixo permanece como registro histórico do procedimento controlado:
 
 Antes de qualquer execução:
 
@@ -268,8 +270,8 @@ e gere uma nova compilação. As tentativas continuam sendo salvas localmente. D
 
 ## Riscos e pendências
 
-- A migration foi validada estaticamente e por testes, não contra o projeto real e não foi executada.
+- A migration foi executada manualmente e as 11 verificações operacionais informadas passaram.
 - O contrato legado documentado é validado no começo da migration; qualquer divergência deve ser revisada manualmente antes da execução.
 - A fila de tentativas é persistente por usuário e tolera múltiplas abas por meio da idempotência da RPC, mas não substitui coordenação distribuída.
-- Manifests são enviados em modo best-effort; reconciliação persistente e recuperação completa entre dispositivos ficam para a Fase 3B.
-- Não foram adicionados Realtime, PWA, página Progresso, gráficos, revisão do dia ou motor Python.
+- A Fase 3B adicionou fila persistente e recuperação de manifests; a ativação real de writes e a validação end-to-end ainda estão pendentes.
+- Não foram adicionados Realtime, PWA, notificações push ou motor Python.
