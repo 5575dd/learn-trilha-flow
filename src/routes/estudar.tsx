@@ -6,11 +6,11 @@ import { useAuth } from "@/auth/AuthContext";
 import { AppShell } from "@/components/layout/AppShell";
 import { StudyHub } from "@/components/study/StudyHub";
 import { listAulas, listQuestoesDisponiveis } from "@/data/queries";
-import { InMemoryAttemptRepository } from "@/data/repositories/AttemptRepository";
+import { attemptRepository } from "@/data/repositories/DualAttemptRepository";
 import { validateAndRepair } from "@/domain/questions/questionValidator";
 import type { ValidQuestion } from "@/domain/questions/questionTypes";
 
-const repository = new InMemoryAttemptRepository();
+const repository = attemptRepository;
 
 export const Route = createFileRoute("/estudar")({
   ssr: false,
