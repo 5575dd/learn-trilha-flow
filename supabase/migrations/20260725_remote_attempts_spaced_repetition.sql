@@ -405,7 +405,31 @@ begin
   ) then
     create policy revisoes_no_direct_delete
       on public.revisoes_questoes as restrictive for delete to authenticated
-      using€Æ-¢Gß≤⁄Óù∆≠y—me = 'sessoes_update_own'
+      using (false);
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'sessoes_estudo'
+      and policyname = 'sessoes_select_own'
+  ) then
+    create policy sessoes_select_own
+      on public.sessoes_estudo for select to authenticated
+      using ((select auth.uid()) = user_id);
+  end if;
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'sessoes_estudo'
+      and policyname = 'sessoes_insert_own'
+  ) then
+    create policy sessoes_insert_own
+      on public.sessoes_estudo for insert to authenticated
+      with check ((select auth.uid()) = user_id);
+  end if;
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'sessoes_estudo'
+      and policyname = 'sessoes_update_own'
   ) then
     create policy sessoes_update_own
       on public.sessoes_estudo for update to authenticated
