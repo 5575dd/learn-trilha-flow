@@ -62,7 +62,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
           ...initialSession,
           phase: "error",
           sessionId: action.sessionId,
-          errorMessage: "Nenhuma questÃ£o vÃ¡lida",
+          errorMessage: "Nenhuma questão válida",
         };
       }
       const resumeAttempts = action.resumeAttempts ?? [];
