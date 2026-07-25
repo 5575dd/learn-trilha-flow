@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { RequireAuth } from "@/auth/RequireAuth";
+import { useAuth } from "@/auth/AuthContext";
 import { AppShell } from "@/components/layout/AppShell";
 import { InMemoryAttemptRepository } from "@/data/repositories/AttemptRepository";
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
@@ -19,22 +20,57 @@ const repo = new InMemoryAttemptRepository();
 function ResultRoute() {
   const { id } = Route.useParams();
   const { s } = Route.useSearch();
+  const aulaId = Number(id);
   return (
     <RequireAuth>
       <AppShell>
-        <Result aulaId={Number(id)} sessionId={s} />
+        {!Number.isSafeInteger(aulaId) || aulaId <= 0 ? (
+          <p className="text-sm text-rose-600">ID de aula inválido.</p>
+        ) : (
+          <Result aulaId={aulaId} sessionId={s} />
+        )}
       </AppShell>
     </RequireAuth>
   );
 }
 
 function Result({ aulaId, sessionId }: { aulaId: number; sessionId: string }) {
+  const { session } = useAuth();
   const [attempts, setAttempts] = useState<AttemptRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(false);
 
   useEffect(() => {
-    void repo.load(sessionId).then(setAttempts);
-  }, [sessionId]);
+    if (!sessionId || !session?.user.id) {
+      setLoadError("Sessão ausente ou inválida.");
+      setLoading(false);
+      return;
+    }
+    void repo
+      .load(session.user.id, sessionId)
+      .then((loaded) => {
+        if (loaded.length === 0) {
+          setLoadError("Esta sessão não existe ou não possui tentativas.");
+        } else {
+          setAttempts(loaded);
+        }
+      })
+      .catch(() => setLoadError("Não foi possível carregar o resultado salvo."))
+      .finally(() => setLoading(false));
+  }, [sessionId, session?.user.id]);
+
+  if (loading) return <p className="text-sm text-slate-500">Carregando resultado…</p>;
+  if (loadError) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-rose-600">{loadError}</p>
+        <Link to="/" className="text-sm font-medium text-purple-700">
+          Voltar ao início
+        </Link>
+      </div>
+    );
+  }
 
   const correct = attempts.filter((a) => a.result.status === "correct").length;
   const incorrect = attempts.filter((a) => a.result.status === "incorrect").length;

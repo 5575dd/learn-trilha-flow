@@ -25,6 +25,7 @@ export interface SessionState {
   index: number;
   attempts: AttemptRecord[];
   startedAt: number;
+  questionPresentedAt: number;
   errorMessage?: string;
 }
 
@@ -50,6 +51,7 @@ export const initialSession: SessionState = {
   index: 0,
   attempts: [],
   startedAt: 0,
+  questionPresentedAt: 0,
 };
 
 export function sessionReducer(state: SessionState, action: SessionAction): SessionState {
@@ -64,18 +66,21 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
         };
       }
       const resumeAttempts = action.resumeAttempts ?? [];
-      const resumeIndex = Math.min(
-        Math.max(0, action.resumeIndex ?? 0),
-        action.questions.length,
-      );
+      const resumeIndex = Math.min(Math.max(0, action.resumeIndex ?? 0), action.questions.length);
       const completed = resumeIndex >= action.questions.length;
+      const currentQuestion = action.questions[resumeIndex];
+      const currentAttempt = currentQuestion
+        ? resumeAttempts.find((attempt) => attempt.questionId === currentQuestion.id)
+        : undefined;
+      const now = Date.now();
       return {
-        phase: completed ? "completed" : "ready",
+        phase: completed ? "completed" : currentAttempt ? "feedback" : "ready",
         sessionId: action.sessionId,
         questions: action.questions,
         index: completed ? action.questions.length : resumeIndex,
         attempts: resumeAttempts,
-        startedAt: Date.now(),
+        startedAt: now,
+        questionPresentedAt: now,
       };
     }
     case "START_ANSWER":
@@ -101,12 +106,25 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
       if (nextIndex >= state.questions.length) {
         return { ...state, phase: "completed", index: state.questions.length };
       }
-      return { ...state, phase: "ready", index: nextIndex };
+      return {
+        ...state,
+        phase: "ready",
+        index: nextIndex,
+        questionPresentedAt: Date.now(),
+      };
     }
     case "PAUSE":
       return { ...state, phase: "paused" };
     case "RESUME":
-      return { ...state, phase: state.attempts.length > 0 ? "feedback" : "ready" };
+      return {
+        ...state,
+        phase: state.attempts.some(
+          (attempt) => attempt.questionId === state.questions[state.index]?.id,
+        )
+          ? "feedback"
+          : "ready",
+        questionPresentedAt: Date.now(),
+      };
     case "ERROR":
       return { ...state, phase: "error", errorMessage: action.message };
     default:
@@ -138,4 +156,8 @@ export function computeStats(state: SessionState) {
   const denom = correct + incorrect;
   const rate = denom === 0 ? 0 : correct / denom;
   return { correct, incorrect, neutral, invalid, rate };
+}
+
+export function questionElapsedMs(questionPresentedAt: number, now = Date.now()): number {
+  return Math.max(0, now - questionPresentedAt);
 }

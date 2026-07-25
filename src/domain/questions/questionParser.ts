@@ -273,8 +273,7 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
   }
 
   if (kind === "FLASHCARD" || kind === "OPEN" || kind === "MICROSCENARIO") {
-    const frontText =
-      String(meta.front ?? meta.prompt ?? meta.scenario ?? "").trim() || enunciado;
+    const frontText = String(meta.front ?? meta.prompt ?? meta.scenario ?? "").trim() || enunciado;
     const q: ValidQuestion = {
       ...base,
       kind,

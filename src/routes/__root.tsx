@@ -93,9 +93,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "Ingles com vitao" },
-      { name: "twitter:description", content: "Transforme cada aula de inglês em uma trilha de revisão prática, visual e inteligente." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/cc7760a4-9dc9-4fef-8fae-031218f53323/id-preview-3f836174--5e9be2e5-fad9-4bbc-9c80-38c551f00093.lovable.app-1784422376087.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/cc7760a4-9dc9-4fef-8fae-031218f53323/id-preview-3f836174--5e9be2e5-fad9-4bbc-9c80-38c551f00093.lovable.app-1784422376087.png" },
+      {
+        name: "twitter:description",
+        content:
+          "Transforme cada aula de inglês em uma trilha de revisão prática, visual e inteligente.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/cc7760a4-9dc9-4fef-8fae-031218f53323/id-preview-3f836174--5e9be2e5-fad9-4bbc-9c80-38c551f00093.lovable.app-1784422376087.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/cc7760a4-9dc9-4fef-8fae-031218f53323/id-preview-3f836174--5e9be2e5-fad9-4bbc-9c80-38c551f00093.lovable.app-1784422376087.png",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

@@ -22,6 +22,7 @@ export async function listAulas(): Promise<AulaListItem[]> {
 }
 
 export async function getAula(id: number): Promise<Aula | null> {
+  assertValidId(id, "aula");
   const { data, error } = await getSupabase()
     .from("aulas")
     .select(
@@ -35,6 +36,7 @@ export async function getAula(id: number): Promise<Aula | null> {
 }
 
 export async function listQuestoesByAula(aulaId: number): Promise<RawQuestion[]> {
+  assertValidId(aulaId, "aula");
   const { data, error } = await getSupabase()
     .from("questoes")
     .select(
@@ -45,6 +47,12 @@ export async function listQuestoesByAula(aulaId: number): Promise<RawQuestion[]>
     .order("ordem", { ascending: true });
   if (error) throw error;
   return (data ?? []) as RawQuestion[];
+}
+
+export function assertValidId(id: number, label: string): void {
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    throw new Error(`ID de ${label} inválido.`);
+  }
 }
 
 export async function listHistorico(): Promise<{ data_estudo: string | null }[]> {

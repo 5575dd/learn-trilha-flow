@@ -58,9 +58,10 @@ describe("questionParser", () => {
     }
   });
 
-  it("classifies OPEN as unsupported", () => {
+  it("supports OPEN as self-evaluation", () => {
     const entry = parseQuestion(raw({ tipo: "OPEN", resposta_correta: "x" }));
-    expect(entry.status).toBe("unsupported");
+    expect(entry.status).toBe("valid");
+    if (entry.status === "valid") expect(entry.question.kind).toBe("OPEN");
   });
 
   it("PRONUNCIATION never becomes a valid question", () => {
@@ -79,6 +80,14 @@ describe("questionParser", () => {
     expect(parseQuestion(raw({ tipo: "TF", resposta_correta: "Verdadeiro" })).status).toBe(
       "repairable",
     );
+  });
+
+  it.each(["não", "nao"])("normalizes TF false value %s", (value) => {
+    const entry = parseQuestion(raw({ tipo: "TF", resposta_correta: value }));
+    expect(entry.status).toBe("repairable");
+    if (entry.status === "repairable" && entry.question.kind === "TF") {
+      expect(entry.question.canonicalAnswerText).toBe("False");
+    }
   });
 
   it("ORDER builds blocks with per-occurrence ids", () => {

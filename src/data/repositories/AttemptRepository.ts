@@ -1,102 +1,145 @@
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
+import { readLocal, removeLocal, storageKeys, writeLocal } from "@/data/localStorage";
+
+export const SESSION_SNAPSHOT_SCHEMA_VERSION = 1;
 
 export interface SessionSnapshot {
+  schemaVersion: typeof SESSION_SNAPSHOT_SCHEMA_VERSION;
+  userId: string;
   aulaId: number;
   sessionId: string;
-  index: number;
-  total: number;
+  questionIds: number[];
+  currentQuestionId: number | null;
+  currentIndex: number;
   updatedAt: number;
 }
 
-export interface AttemptRepository {
-  save(sessionId: string, attempt: AttemptRecord): Promise<void>;
-  load(sessionId: string): Promise<AttemptRecord[]>;
-  clear(sessionId: string): Promise<void>;
+export interface SnapshotExpectation {
+  userId: string;
+  aulaId: number;
+  questionIds: number[];
 }
 
-const ATTEMPTS_KEY = (id: string) => `trilha.attempts.${id}`;
-const SNAPSHOT_KEY = (aulaId: number) => `trilha.session.${aulaId}`;
+export interface AttemptRepository {
+  save(userId: string, sessionId: string, attempt: AttemptRecord): Promise<void>;
+  load(userId: string, sessionId: string): Promise<AttemptRecord[]>;
+  clear(userId: string, sessionId: string): Promise<void>;
+}
+
+function isAttempt(value: unknown): value is AttemptRecord {
+  if (!value || typeof value !== "object") return false;
+  const attempt = value as Partial<AttemptRecord>;
+  return (
+    typeof attempt.attemptId === "string" &&
+    Number.isSafeInteger(attempt.questionId) &&
+    typeof attempt.timeMs === "number" &&
+    !!attempt.result &&
+    typeof attempt.result === "object"
+  );
+}
 
 export class InMemoryAttemptRepository implements AttemptRepository {
   private store = new Map<string, AttemptRecord[]>();
 
-  private hydrate(id: string): AttemptRecord[] {
-    if (this.store.has(id)) return this.store.get(id)!;
-    if (typeof window === "undefined") return [];
+  private cacheKey(userId: string, sessionId: string) {
+    return `${userId}:${sessionId}`;
+  }
+
+  private hydrate(userId: string, sessionId: string): AttemptRecord[] {
+    const cacheKey = this.cacheKey(userId, sessionId);
+    if (this.store.has(cacheKey)) return this.store.get(cacheKey)!;
+    const raw = readLocal(storageKeys.attempts(userId, sessionId));
+    if (!raw) return [];
     try {
-      const raw = window.localStorage.getItem(ATTEMPTS_KEY(id));
-      if (!raw) return [];
-      const parsed = JSON.parse(raw) as AttemptRecord[];
-      if (Array.isArray(parsed)) {
-        this.store.set(id, parsed);
-        return parsed;
+      const parsed: unknown = JSON.parse(raw);
+      if (!Array.isArray(parsed) || !parsed.every(isAttempt)) {
+        removeLocal(storageKeys.attempts(userId, sessionId));
+        return [];
       }
-    } catch {
-      /* ignore */
-    }
-    return [];
-  }
-
-  private persist(id: string, list: AttemptRecord[]) {
-    this.store.set(id, list);
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(ATTEMPTS_KEY(id), JSON.stringify(list));
-    } catch {
-      /* ignore quota */
-    }
-  }
-
-  async save(sessionId: string, attempt: AttemptRecord): Promise<void> {
-    const list = this.hydrate(sessionId);
-    if (list.some((a) => a.attemptId === attempt.attemptId)) return;
-    this.persist(sessionId, [...list, attempt]);
-  }
-  async load(sessionId: string): Promise<AttemptRecord[]> {
-    return this.hydrate(sessionId);
-  }
-  async clear(sessionId: string): Promise<void> {
-    this.store.delete(sessionId);
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.removeItem(ATTEMPTS_KEY(sessionId));
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-export function saveSessionSnapshot(snap: SessionSnapshot) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(SNAPSHOT_KEY(snap.aulaId), JSON.stringify(snap));
-  } catch {
-    /* ignore */
-  }
-}
-
-export function loadSessionSnapshot(aulaId: number): SessionSnapshot | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(SNAPSHOT_KEY(aulaId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as SessionSnapshot;
-    if (parsed && typeof parsed.sessionId === "string" && typeof parsed.index === "number") {
+      this.store.set(cacheKey, parsed);
       return parsed;
+    } catch (error) {
+      console.error("[storage] corrupt attempts discarded", {
+        name: error instanceof Error ? error.name : "UnknownError",
+      });
+      removeLocal(storageKeys.attempts(userId, sessionId));
+      return [];
     }
-  } catch {
-    /* ignore */
   }
-  return null;
+
+  async save(userId: string, sessionId: string, attempt: AttemptRecord): Promise<void> {
+    const list = this.hydrate(userId, sessionId);
+    if (list.some((item) => item.attemptId === attempt.attemptId)) return;
+    const next = [...list, attempt];
+    writeLocal(storageKeys.attempts(userId, sessionId), JSON.stringify(next));
+    this.store.set(this.cacheKey(userId, sessionId), next);
+  }
+
+  async load(userId: string, sessionId: string): Promise<AttemptRecord[]> {
+    return this.hydrate(userId, sessionId);
+  }
+
+  async clear(userId: string, sessionId: string): Promise<void> {
+    removeLocal(storageKeys.attempts(userId, sessionId));
+    this.store.delete(this.cacheKey(userId, sessionId));
+  }
 }
 
-export function clearSessionSnapshot(aulaId: number) {
-  if (typeof window === "undefined") return;
+function sameIds(left: number[], right: number[]) {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
+function isSnapshot(value: unknown): value is SessionSnapshot {
+  if (!value || typeof value !== "object") return false;
+  const snapshot = value as Partial<SessionSnapshot>;
+  return (
+    snapshot.schemaVersion === SESSION_SNAPSHOT_SCHEMA_VERSION &&
+    typeof snapshot.userId === "string" &&
+    Number.isSafeInteger(snapshot.aulaId) &&
+    typeof snapshot.sessionId === "string" &&
+    snapshot.sessionId.length > 0 &&
+    Array.isArray(snapshot.questionIds) &&
+    snapshot.questionIds.every(Number.isSafeInteger) &&
+    (snapshot.currentQuestionId === null || Number.isSafeInteger(snapshot.currentQuestionId)) &&
+    Number.isSafeInteger(snapshot.currentIndex) &&
+    typeof snapshot.updatedAt === "number"
+  );
+}
+
+export function saveSessionSnapshot(snapshot: SessionSnapshot): void {
+  writeLocal(storageKeys.snapshot(snapshot.userId, snapshot.aulaId), JSON.stringify(snapshot));
+}
+
+export function loadSessionSnapshot(expected: SnapshotExpectation): SessionSnapshot | null {
+  const key = storageKeys.snapshot(expected.userId, expected.aulaId);
+  const raw = readLocal(key);
+  if (!raw) return null;
   try {
-    window.localStorage.removeItem(SNAPSHOT_KEY(aulaId));
-  } catch {
-    /* ignore */
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      !isSnapshot(parsed) ||
+      parsed.userId !== expected.userId ||
+      parsed.aulaId !== expected.aulaId ||
+      !sameIds(parsed.questionIds, expected.questionIds) ||
+      parsed.currentIndex < 0 ||
+      parsed.currentIndex > expected.questionIds.length ||
+      parsed.currentQuestionId !== (expected.questionIds[parsed.currentIndex] ?? null)
+    ) {
+      removeLocal(key);
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    console.error("[storage] corrupt snapshot discarded", {
+      name: error instanceof Error ? error.name : "UnknownError",
+    });
+    removeLocal(key);
+    return null;
   }
+}
+
+export function clearSessionSnapshot(userId: string, aulaId: number): void {
+  removeLocal(storageKeys.snapshot(userId, aulaId));
 }
 
 export class SupabaseAttemptRepository implements AttemptRepository {
@@ -107,6 +150,6 @@ export class SupabaseAttemptRepository implements AttemptRepository {
     return [];
   }
   async clear(): Promise<void> {
-    /* no-op */
+    // Writes remain deliberately disabled in phase 1.
   }
 }

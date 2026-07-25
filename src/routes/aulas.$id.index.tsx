@@ -12,10 +12,15 @@ export const Route = createFileRoute("/aulas/$id/")({
 
 function AulaDetailRoute() {
   const { id } = Route.useParams();
+  const aulaId = Number(id);
   return (
     <RequireAuth>
       <AppShell>
-        <AulaDetail id={Number(id)} />
+        {!Number.isSafeInteger(aulaId) || aulaId <= 0 ? (
+          <p className="text-sm text-rose-600">ID de aula inválido.</p>
+        ) : (
+          <AulaDetail id={aulaId} />
+        )}
       </AppShell>
     </RequireAuth>
   );

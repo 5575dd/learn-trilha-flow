@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabase } from "@/lib/supabase";
+import { clearTransientUserStorage } from "@/data/localStorage";
 
 interface AuthContextValue {
   session: Session | null;
@@ -48,14 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    const currentUserId = session?.user.id;
     await getSupabase().auth.signOut();
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && currentUserId) {
+      clearTransientUserStorage(currentUserId);
       Object.keys(window.sessionStorage)
         .filter((k) => k.startsWith("trilha."))
         .forEach((k) => window.sessionStorage.removeItem(k));
     }
     setSession(null);
-  }, []);
+  }, [session?.user.id]);
 
   const value = useMemo(
     () => ({ session, loading, signIn, signOut }),

@@ -85,7 +85,9 @@ function MCView({
       {q.kind === "READING_MC" && q.supportText && (
         <p className="rounded-xl bg-purple-50 p-3 text-sm text-slate-700">{q.supportText}</p>
       )}
-      {q.kind === "LISTENING_MC" && q.audioText && <ListenButton text={q.audioText} label="🔊 Ouvir novamente" />}
+      {q.kind === "LISTENING_MC" && q.audioText && (
+        <ListenButton text={q.audioText} label="🔊 Ouvir novamente" />
+      )}
       <div className="space-y-2">
         {q.options.map((opt) => {
           const active = selected === opt;
@@ -212,7 +214,9 @@ function OrderView({
       <Stem
         text={
           q.enunciado ||
-          (isDialogue ? "Coloque as falas na ordem correta." : "Coloque os blocos na ordem correta.")
+          (isDialogue
+            ? "Coloque as falas na ordem correta."
+            : "Coloque os blocos na ordem correta.")
         }
       />
       <div
@@ -251,7 +255,10 @@ function OrderView({
           </div>
         )}
       </div>
-      <div className={isDialogue ? "space-y-2" : "flex flex-wrap gap-2"} aria-label="Blocos disponíveis">
+      <div
+        className={isDialogue ? "space-y-2" : "flex flex-wrap gap-2"}
+        aria-label="Blocos disponíveis"
+      >
         {remaining.map((b) =>
           isDialogue ? (
             <button
@@ -318,9 +325,13 @@ function TextView({
   return (
     <div className="space-y-4">
       <Stem text={stem} />
-      {q.kind === "DICTATION" && q.audioText && <ListenButton text={q.audioText} label="🔊 Ouvir ditado" />}
+      {q.kind === "DICTATION" && q.audioText && (
+        <ListenButton text={q.audioText} label="🔊 Ouvir ditado" />
+      )}
       {q.kind === "CORRECTION" && q.supportText && (
-        <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-900 line-through">{q.supportText}</p>
+        <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-900 line-through">
+          {q.supportText}
+        </p>
       )}
       <textarea
         aria-label="Sua resposta"

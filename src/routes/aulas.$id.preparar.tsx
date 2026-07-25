@@ -16,7 +16,11 @@ function Prepare() {
   return (
     <RequireAuth>
       <AppShell>
-        <PrepareView aulaId={aulaId} />
+        {!Number.isSafeInteger(aulaId) || aulaId <= 0 ? (
+          <p className="text-sm text-rose-600">ID de aula inválido.</p>
+        ) : (
+          <PrepareView aulaId={aulaId} />
+        )}
       </AppShell>
     </RequireAuth>
   );
