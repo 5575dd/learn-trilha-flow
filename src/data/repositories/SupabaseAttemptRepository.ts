@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAttemptRecord, type AttemptRepository } from "@/data/repositories/AttemptRepository";
-import type { EvaluationStatus } from "@/domain/answers/evaluationTypes";
+import { isEvaluationStatus } from "@/domain/answers/evaluationTypes";
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
 import { getSupabase } from "@/lib/supabase";
 
@@ -47,10 +47,6 @@ interface RpcResultRow {
 const REMOTE_COLUMNS =
   "user_id, attempt_id, session_id, questao_id, resposta_aluno, resposta_correta, feedback, tempo_segundos, result_status, client_created_at, modo_estudo, metadados";
 
-function validStatus(value: unknown): value is EvaluationStatus {
-  return ["correct", "incorrect", "neutral", "skipped", "invalid"].includes(String(value));
-}
-
 function finiteNumber(value: unknown): number | null {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) ? number : null;
@@ -81,7 +77,7 @@ function reconstructAttempt(
     questionId <= 0 ||
     seconds === null ||
     seconds < 0 ||
-    !validStatus(row.result_status)
+    !isEvaluationStatus(row.result_status)
   ) {
     return null;
   }
@@ -134,7 +130,6 @@ function classifyError(error: unknown): RemoteAttemptError {
 }
 
 function serializeAttempt(sessionId: string, attempt: AttemptRecord) {
-  const createdAt = attempt.clientCreatedAt ?? Date.now();
   return {
     p_attempt_id: attempt.attemptId,
     p_session_id: sessionId,
@@ -149,8 +144,42 @@ function serializeAttempt(sessionId: string, attempt: AttemptRecord) {
       normalized_student_answer: attempt.result.normalizedStudentAnswer,
       evaluation_metadata: attempt.result.metadata,
     },
-    p_client_created_at: new Date(createdAt).toISOString(),
+    p_client_created_at:
+      attempt.clientCreatedAt === undefined
+        ? null
+        : new Date(attempt.clientCreatedAt).toISOString(),
   };
+}
+
+type SerializedAttemptPayload = ReturnType<typeof serializeAttempt>;
+
+function normalizeJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeJson);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, normalizeJson(item)]),
+  );
+}
+
+function sameSerializedPayload(
+  left: SerializedAttemptPayload,
+  right: SerializedAttemptPayload,
+): boolean {
+  return (
+    left.p_attempt_id === right.p_attempt_id &&
+    left.p_session_id === right.p_session_id &&
+    left.p_questao_id === right.p_questao_id &&
+    left.p_resposta_aluno === right.p_resposta_aluno &&
+    left.p_result_status === right.p_result_status &&
+    left.p_feedback === right.p_feedback &&
+    left.p_tempo_ms === right.p_tempo_ms &&
+    left.p_modo_estudo === right.p_modo_estudo &&
+    left.p_client_created_at === right.p_client_created_at &&
+    JSON.stringify(normalizeJson(left.p_metadados)) ===
+      JSON.stringify(normalizeJson(right.p_metadados))
+  );
 }
 
 export class SupabaseAttemptRepository implements AttemptRepository {
@@ -234,4 +263,8 @@ export class SupabaseAttemptRepository implements AttemptRepository {
   }
 }
 
-export const attemptSerialization = { serializeAttempt, reconstructAttempt };
+export const attemptSerialization = {
+  serializeAttempt,
+  reconstructAttempt,
+  sameSerializedPayload,
+};

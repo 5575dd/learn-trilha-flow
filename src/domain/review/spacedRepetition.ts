@@ -1,6 +1,6 @@
 import type { EvaluationStatus } from "@/domain/answers/evaluationTypes";
 
-export type ReviewResultStatus = EvaluationStatus | "skipped";
+export type ReviewResultStatus = EvaluationStatus;
 
 export interface SpacedRepetitionResult {
   consecutiveCorrect: number;

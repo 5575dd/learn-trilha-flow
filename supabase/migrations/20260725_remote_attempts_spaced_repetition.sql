@@ -1,6 +1,103 @@
 -- Fase 3A: persistência remota local-first, idempotência e revisão espaçada.
 -- Migration aditiva e não destrutiva. Não executar automaticamente.
 
+do $schema_validation$
+declare
+  mismatch record;
+begin
+  if to_regclass('public.questoes') is null then
+    raise exception 'Schema incompatível: tabela public.questoes não encontrada; migration interrompida antes das alterações';
+  end if;
+
+  if to_regclass('public.tentativas') is null then
+    raise exception 'Schema incompatível: tabela public.tentativas não encontrada; migration interrompida antes das alterações';
+  end if;
+
+  for mismatch in
+    with expected (table_name, column_name, expected_type, expected_not_null) as (
+      values
+        ('questoes', 'id', 'integer', true),
+        ('questoes', 'tipo', 'text', false),
+        ('questoes', 'resposta_correta', 'text', false),
+        ('questoes', 'aula_id', 'bigint', false),
+        ('tentativas', 'id', 'bigint', true),
+        ('tentativas', 'questao_id', 'bigint', true),
+        ('tentativas', 'aula_id', 'bigint', false),
+        ('tentativas', 'tipo', 'text', false),
+        ('tentativas', 'resposta_aluno', 'text', false),
+        ('tentativas', 'resposta_correta', 'text', false),
+        -- Aceita false após uma reaplicação: esta migration torna acertou nullable.
+        ('tentativas', 'acertou', 'boolean', null::boolean),
+        ('tentativas', 'feedback', 'text', false),
+        ('tentativas', 'tempo_segundos', 'integer', true),
+        ('tentativas', 'respondido_em', 'timestamp with time zone', true),
+        ('tentativas', 'modo_estudo', 'text', false),
+        ('tentativas', 'dicas_usadas', 'integer', true),
+        ('tentativas', 'score', 'integer', false),
+        ('tentativas', 'metadados', 'jsonb', true)
+    )
+    select
+      expected.table_name,
+      expected.column_name,
+      expected.expected_type,
+      expected.expected_not_null,
+      format_type(attribute.atttypid, attribute.atttypmod) as actual_type,
+      attribute.attnotnull as actual_not_null
+    from expected
+    left join pg_namespace namespace
+      on namespace.nspname = 'public'
+    left join pg_class relation
+      on relation.relnamespace = namespace.oid
+      and relation.relname = expected.table_name
+      and relation.relkind in ('r', 'p')
+    left join pg_attribute attribute
+      on attribute.attrelid = relation.oid
+      and attribute.attname = expected.column_name
+      and attribute.attnum > 0
+      and not attribute.attisdropped
+    where attribute.attname is null
+      or format_type(attribute.atttypid, attribute.atttypmod)
+        is distinct from expected.expected_type
+      or (
+        expected.expected_not_null is not null
+        and attribute.attnotnull is distinct from expected.expected_not_null
+      )
+  loop
+    if mismatch.actual_type is null then
+      raise exception
+        'Schema incompatível: public.%.% não encontrada; esperado tipo %. Migration interrompida antes das alterações',
+        mismatch.table_name,
+        mismatch.column_name,
+        mismatch.expected_type;
+    end if;
+
+    raise exception
+      'Schema incompatível: public.%.% esperava tipo % e NOT NULL %, encontrou tipo % e NOT NULL %. Migration interrompida antes das alterações',
+      mismatch.table_name,
+      mismatch.column_name,
+      mismatch.expected_type,
+      mismatch.expected_not_null,
+      mismatch.actual_type,
+      mismatch.actual_not_null;
+  end loop;
+
+  if not exists (
+    select 1
+    from pg_attribute attribute
+    where attribute.attrelid = 'public.tentativas'::regclass
+      and attribute.attname = 'id'
+      and attribute.attnum > 0
+      and not attribute.attisdropped
+      and attribute.attidentity in ('a', 'd')
+  ) then
+    raise exception 'Schema incompatível: public.tentativas.id deve ser identity bigint; a RPC não envia essa coluna. Migration interrompida antes das alterações';
+  end if;
+end
+$schema_validation$;
+
+alter table public.tentativas
+  alter column acertou drop not null;
+
 do $migration$
 declare
   question_id_type text;
@@ -187,7 +284,14 @@ begin
   ) then
     alter table public.tentativas
       add constraint tentativas_user_fk
-      foreign key (user_id) references auth.users(id) on delete cascade not valid;
+      foreign key (user_id) references auth.users(id) on delete set null not valid;
+  elsif exists (
+    select 1 from pg_constraint
+    where conname = 'tentativas_user_fk'
+      and conrelid = 'public.tentativas'::regclass
+      and confdeltype <> 'n'
+  ) then
+    raise exception 'Schema incompatível: tentativas_user_fk existente deve usar ON DELETE SET NULL';
   end if;
 
   if not exists (
@@ -301,31 +405,7 @@ begin
   ) then
     create policy revisoes_no_direct_delete
       on public.revisoes_questoes as restrictive for delete to authenticated
-      using (false);
-  end if;
-
-  if not exists (
-    select 1 from pg_policies
-    where schemaname = 'public' and tablename = 'sessoes_estudo'
-      and policyname = 'sessoes_select_own'
-  ) then
-    create policy sessoes_select_own
-      on public.sessoes_estudo for select to authenticated
-      using ((select auth.uid()) = user_id);
-  end if;
-  if not exists (
-    select 1 from pg_policies
-    where schemaname = 'public' and tablename = 'sessoes_estudo'
-      and policyname = 'sessoes_insert_own'
-  ) then
-    create policy sessoes_insert_own
-      on public.sessoes_estudo for insert to authenticated
-      with check ((select auth.uid()) = user_id);
-  end if;
-  if not exists (
-    select 1 from pg_policies
-    where schemaname = 'public' and tablename = 'sessoes_estudo'
-      and policyname = 'sessoes_update_own'
+      usingۮ-�G����ƭy�me = 'sessoes_update_own'
   ) then
     create policy sessoes_update_own
       on public.sessoes_estudo for update to authenticated
@@ -536,7 +616,12 @@ begin
             when p_result_status = 'incorrect' then 0
             else null
           end,
-          p_metadados || jsonb_build_object('tempo_ms', p_tempo_ms),
+          p_metadados || jsonb_build_object(
+            'tempo_ms',
+            p_tempo_ms,
+            'client_created_at_supplied',
+            p_client_created_at is not null
+          ),
           authenticated_user,
           p_attempt_id,
           p_session_id,
@@ -552,15 +637,43 @@ begin
         attempt_inserted := coalesce(attempt_inserted, false);
 
         if not attempt_inserted then
-          select attempt.questao_id, attempt.session_id
+          select
+            attempt.questao_id,
+            attempt.session_id,
+            attempt.resposta_aluno,
+            attempt.result_status,
+            attempt.metadados -> 'tempo_ms' as tempo_ms,
+            attempt.modo_estudo,
+            attempt.client_created_at,
+            attempt.feedback,
+            attempt.metadados -> 'client_created_at_supplied' as client_created_at_supplied,
+            attempt.metadados - 'tempo_ms' - 'client_created_at_supplied' as payload_metadados
             into existing_attempt
           from public.tentativas attempt
           where attempt.user_id = authenticated_user
             and attempt.attempt_id = p_attempt_id;
 
-          if existing_attempt.questao_id is distinct from p_questao_id
+          if not found
+            or existing_attempt.questao_id is distinct from p_questao_id
             or existing_attempt.session_id is distinct from p_session_id then
-            raise exception 'attempt_id já utilizado com outro payload' using errcode = '23505';
+            raise exception 'attempt_id já utilizado com payload diferente' using errcode = '23505';
+          end if;
+
+          if existing_attempt.resposta_aluno is distinct from p_resposta_aluno
+            or existing_attempt.result_status is distinct from p_result_status
+            or existing_attempt.tempo_ms is distinct from to_jsonb(p_tempo_ms)
+            or existing_attempt.modo_estudo
+              is distinct from left(coalesce(p_modo_estudo, 'study'), 64)
+            or existing_attempt.feedback is distinct from p_feedback
+            or existing_attempt.payload_metadados
+              is distinct from (p_metadados - 'tempo_ms' - 'client_created_at_supplied')
+            or existing_attempt.client_created_at_supplied
+              is distinct from to_jsonb(p_client_created_at is not null)
+            or (
+              p_client_created_at is not null
+              and existing_attempt.client_created_at is distinct from p_client_created_at
+            ) then
+            raise exception 'attempt_id já utilizado com payload diferente' using errcode = '23505';
           end if;
         end if;
 

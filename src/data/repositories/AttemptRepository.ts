@@ -1,5 +1,6 @@
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
 import { readLocal, removeLocal, storageKeys, writeLocal } from "@/data/localStorage";
+import { isEvaluationStatus } from "@/domain/answers/evaluationTypes";
 
 export const SESSION_SNAPSHOT_SCHEMA_VERSION = 1;
 
@@ -43,7 +44,7 @@ export function isAttemptRecord(value: unknown): value is AttemptRecord {
       (typeof attempt.clientCreatedAt === "number" && Number.isFinite(attempt.clientCreatedAt))) &&
     (attempt.sessionMode === undefined || typeof attempt.sessionMode === "string") &&
     !!result &&
-    ["correct", "incorrect", "neutral", "skipped", "invalid"].includes(String(result.status)) &&
+    isEvaluationStatus(result.status) &&
     typeof result.studentAnswerDisplay === "string" &&
     typeof result.correctAnswerDisplay === "string" &&
     typeof result.normalizedStudentAnswer === "string" &&

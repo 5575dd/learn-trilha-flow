@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveSyncDisplayState } from "@/data/sync/syncStatus";
+import { deriveSyncDisplayState, SYNC_DISPLAY_LABELS } from "@/data/sync/syncStatus";
 import type { SyncQueueItem } from "@/data/sync/syncQueue";
 
 function item(status: SyncQueueItem["status"]): SyncQueueItem {
@@ -35,6 +35,16 @@ function item(status: SyncQueueItem["status"]): SyncQueueItem {
 }
 
 describe("sync status", () => {
+  it("uses wording scoped explicitly to attempt synchronization", () => {
+    expect(SYNC_DISPLAY_LABELS).toEqual({
+      local: "Salvo neste dispositivo",
+      syncing: "Sincronizando tentativas",
+      synced: "Tentativas sincronizadas",
+      failed: "Falha ao sincronizar tentativas",
+      offline: "Offline — salvo neste dispositivo",
+    });
+  });
+
   it("reports device-only persistence when writes are disabled", () => {
     expect(deriveSyncDisplayState({ writesEnabled: false, online: true, items: [] })).toBe("local");
   });

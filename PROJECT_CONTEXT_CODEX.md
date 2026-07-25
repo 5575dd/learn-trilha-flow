@@ -65,7 +65,7 @@ Fluxo desejado:
 
 ### Migration criada, ainda não ativa
 
-A migration adiciona `revisoes_questoes`, `sessoes_estudo`, colunas de identidade/sincronização em `tentativas`, índices, RLS, policies e a RPC `registrar_tentativa_estudo`. Ela depende de execução e verificação manual no Supabase conforme `docs/SUPABASE_FASE_3A.md`.
+A migration valida primeiro o schema legado confirmado, torna `tentativas.acertou` nullable para representar estados não binários, adiciona `revisoes_questoes`, `sessoes_estudo`, colunas de identidade/sincronização em `tentativas`, índices, RLS, policies e a RPC `registrar_tentativa_estudo`. A FK de usuário de `tentativas` preserva o histórico com `ON DELETE SET NULL`, e retries só são idempotentes quando todo o payload semântico coincide. Ela depende de execução e verificação manual no Supabase conforme `docs/SUPABASE_FASE_3A.md`; o logout preserva tentativas, fila, manifests e progresso locais isolados por usuário.
 
 ### Pendências da Fase 3B
 

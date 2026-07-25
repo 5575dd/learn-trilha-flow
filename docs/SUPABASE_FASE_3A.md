@@ -2,13 +2,40 @@
 
 ## Estado desta entrega
 
-A migration `20260725_remote_attempts_spaced_repetition.sql` foi criada para revisão, mas não foi executada no projeto Supabase. As escritas remotas continuam desabilitadas por padrão com:
+A migration `20260725_remote_attempts_spaced_repetition.sql` foi criada para revisão. A migration não foi executada no projeto Supabase e não foi validada contra o banco real. As escritas remotas continuam desabilitadas por padrão com:
 
 ```text
 VITE_ENABLE_SUPABASE_WRITES=false
 ```
 
 O aplicativo permanece local-first e continua funcionando somente com o armazenamento do navegador enquanto essa flag estiver desabilitada.
+
+## Schema legado confirmado
+
+O schema real foi consultado fora desta entrega e informado como:
+
+| Tabela       | Coluna             | Tipo        | Nullability | Default/identidade                     |
+| ------------ | ------------------ | ----------- | ----------- | -------------------------------------- |
+| `questoes`   | `id`               | `integer`   | NOT NULL    | `nextval('questoes_id_seq')`           |
+| `questoes`   | `tipo`             | `text`      | nullable    | —                                      |
+| `questoes`   | `resposta_correta` | `text`      | nullable    | —                                      |
+| `questoes`   | `aula_id`          | `bigint`    | nullable    | —                                      |
+| `tentativas` | `id`               | `bigint`    | NOT NULL    | identity; não é enviado pela RPC       |
+| `tentativas` | `questao_id`       | `bigint`    | NOT NULL    | —                                      |
+| `tentativas` | `aula_id`          | `bigint`    | nullable    | —                                      |
+| `tentativas` | `tipo`             | `text`      | nullable    | —                                      |
+| `tentativas` | `resposta_aluno`   | `text`      | nullable    | —                                      |
+| `tentativas` | `resposta_correta` | `text`      | nullable    | —                                      |
+| `tentativas` | `acertou`          | `boolean`   | NOT NULL    | sem default antes desta migration      |
+| `tentativas` | `feedback`         | `text`      | nullable    | —                                      |
+| `tentativas` | `tempo_segundos`   | `integer`   | NOT NULL    | `0`                                    |
+| `tentativas` | `respondido_em`    | `timestamptz` | NOT NULL  | `now()`                                |
+| `tentativas` | `modo_estudo`      | `text`      | nullable    | —                                      |
+| `tentativas` | `dicas_usadas`     | `integer`   | NOT NULL    | `0`                                    |
+| `tentativas` | `score`            | `integer`   | nullable    | —                                      |
+| `tentativas` | `metadados`        | `jsonb`     | NOT NULL    | `'{}'::jsonb`                          |
+
+No início, antes de qualquer alteração, a migration confere a existência, os tipos e a nullability compatível dessas colunas, além de exigir que `tentativas.id` seja identity. `questoes.id` é `integer` e `tentativas.questao_id` é `bigint`; inserir o primeiro no segundo é uma conversão segura do PostgreSQL. Em divergência, o script interrompe com mensagem explícita e não tenta converter dados históricos.
 
 ## Finalidade da migration
 
@@ -21,7 +48,7 @@ A migration adiciona a infraestrutura necessária para:
 - manter linhas históricas de `tentativas` sem `user_id` ou `attempt_id`;
 - impedir leitura cruzada entre usuários com RLS.
 
-Ela não contém `DROP`, `TRUNCATE` ou exclusão de dados. Também não altera `questoes.resposta_correta` nem usa os campos globais antigos de revisão da tabela `questoes`.
+Ela não contém `DROP TABLE`, `DROP COLUMN`, `TRUNCATE` ou exclusão de dados. A única operação `DROP` é `ALTER COLUMN acertou DROP NOT NULL`, que relaxa uma restrição sem reescrever os valores existentes. A migration também não altera `questoes.resposta_correta` nem usa os campos globais antigos de revisão da tabela `questoes`.
 
 ## Tabelas e colunas
 
@@ -29,7 +56,7 @@ Ela não contém `DROP`, `TRUNCATE` ou exclusão de dados. Também não altera `
 
 Nova tabela com chave primária composta `(user_id, questao_id)`. Armazena sequência de acertos, totais, próxima revisão, última resposta e último `attempt_id` aplicado.
 
-O tipo de `questao_id` é derivado de `public.questoes.id` durante a migration. Assim, o script não pressupõe se o identificador atual é `integer`, `bigint` ou outro tipo escalar compatível.
+Depois de validar que `public.questoes.id` é o `integer` confirmado, a migration deriva esse tipo do catálogo para criar `questao_id` sem duplicar a declaração em SQL dinâmico.
 
 ### `sessoes_estudo`
 
@@ -55,6 +82,14 @@ São adicionadas, somente quando ausentes:
 
 O índice único parcial `(user_id, attempt_id)` aplica idempotência às novas tentativas e permite que linhas históricas com valores nulos continuem existindo.
 
+Antes da RPC ser criada, `tentativas.acertou` passa a aceitar `NULL`. Nenhum valor anterior é alterado:
+
+- `true`: resposta correta;
+- `false`: resposta incorreta;
+- `NULL`: resultado sem classificação binária (`neutral`, `skipped` ou `invalid`).
+
+Assim, um resultado neutro ou ignorado não é confundido com erro. A foreign key `tentativas_user_fk` usa `ON DELETE SET NULL`: excluir uma conta de autenticação preserva a tentativa como histórico anônimo. Em contraste, `revisoes_questoes` e `sessoes_estudo` representam estado individual recuperável e continuam com `ON DELETE CASCADE`.
+
 ## RPC `registrar_tentativa_estudo`
 
 A RPC:
@@ -68,6 +103,8 @@ A RPC:
 7. retorna se houve inserção ou duplicidade e o estado atual de revisão.
 
 O parâmetro de duração é `p_tempo_ms`, em milissegundos. O valor legado `tempo_segundos` é calculado dentro da RPC e o valor exato em milissegundos também é preservado nos metadados seguros. Respostas `neutral`, `skipped` e `invalid` são registradas, mas não incrementam os contadores de revisão e não são tratadas como acerto.
+
+Em retry, o mesmo `(user_id, attempt_id)` só retorna `already_existed` quando o payload semântico permanece igual: questão, sessão, resposta do aluno, status, tempo exato em milissegundos, modo de estudo, feedback, metadados normalizados e presença/valor de `client_created_at`. Qualquer divergência é rejeitada como erro permanente (`23505`), sem atualizar ou sobrescrever a tentativa original. Quando o cliente não possui `client_created_at`, envia `NULL`; a RPC registra seu horário-base e retries sem timestamp continuam comparáveis.
 
 A função usa `SECURITY DEFINER`, `search_path` fixo, exige autenticação e concede execução somente a `authenticated`. O frontend usa apenas o cliente Supabase autenticado e nunca precisa de `service_role`.
 
@@ -95,6 +132,19 @@ A mesma tabela de intervalos é testada na função TypeScript pura e verificada
 
 Policies restritivas são adicionadas para que uma policy permissiva preexistente não amplie o acesso entre usuários.
 
+## Persistência no logout
+
+O logout limpa somente chaves de interface `trilha.*` no `sessionStorage`. Dados duráveis no `localStorage`, sempre particionados por `userId`, são preservados:
+
+- tentativas locais, inclusive ainda não sincronizadas;
+- fila persistente de sincronização;
+- manifests recuperáveis;
+- snapshots de sessão e progresso necessários para retomada.
+
+Outro usuário autenticado consulta apenas as próprias chaves. Quando o usuário original entra novamente, seus dados locais podem ser hidratados e a fila pendente pode retomar a sincronização. O logout não depende de flush remoto para evitar perda.
+
+O indicador também delimita seu escopo: `Sincronizando tentativas`, `Tentativas sincronizadas` e `Falha ao sincronizar tentativas` não prometem sincronização completa dos manifests, que continuam best-effort nesta fase.
+
 ## Como executar manualmente
 
 Antes de qualquer execução:
@@ -106,7 +156,7 @@ Antes de qualquer execução:
 5. execute o arquivo uma única vez pelo SQL Editor do Supabase ou pelo fluxo de migrations adotado pela equipe;
 6. não use `service_role` no frontend e não copie chaves para o repositório.
 
-A migration interrompe com erro, sem ação destrutiva, se `public.questoes.id` não existir. Se já houver tabelas com os mesmos nomes e estrutura incompatível, interrompa e revise o conflito em vez de adaptar dados históricos automaticamente.
+A migration interrompe com erro, antes das alterações, se o contrato legado confirmado não existir ou tiver tipos/nullability incompatíveis. Se já houver tabelas ou constraints com os mesmos nomes e estrutura incompatível, interrompa e revise o conflito em vez de adaptar dados históricos automaticamente.
 
 ## Verificação somente de leitura
 
@@ -116,9 +166,48 @@ As consultas abaixo não alteram dados:
 select table_name, column_name, data_type, is_nullable
 from information_schema.columns
 where table_schema = 'public'
-  and table_name in ('revisoes_questoes', 'sessoes_estudo', 'tentativas')
+  and table_name in ('questoes', 'revisoes_questoes', 'sessoes_estudo', 'tentativas')
 order by table_name, ordinal_position;
 ```
+
+```sql
+select column_name, data_type, is_nullable, is_identity, column_default
+from information_schema.columns
+where table_schema = 'public'
+  and (
+    (table_name = 'questoes' and column_name in ('id', 'tipo', 'resposta_correta', 'aula_id'))
+    or (
+      table_name = 'tentativas'
+      and column_name in (
+        'id', 'questao_id', 'aula_id', 'tipo', 'resposta_aluno',
+        'resposta_correta', 'acertou', 'feedback', 'tempo_segundos',
+        'respondido_em', 'modo_estudo', 'dicas_usadas', 'score', 'metadados',
+        'user_id', 'attempt_id', 'session_id', 'result_status',
+        'client_created_at', 'synced_at'
+      )
+    )
+  )
+order by table_name, ordinal_position;
+```
+
+O resultado esperado para `tentativas.acertou` após a execução manual é `is_nullable = 'YES'`.
+
+```sql
+select
+  constraint_name,
+  delete_rule,
+  update_rule
+from information_schema.referential_constraints
+where constraint_schema = 'public'
+  and constraint_name in (
+    'tentativas_user_fk',
+    'revisoes_questoes_user_fk',
+    'sessoes_estudo_user_fk'
+  )
+order by constraint_name;
+```
+
+O resultado esperado para `tentativas_user_fk` é `delete_rule = 'SET NULL'`.
 
 ```sql
 select schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check
@@ -179,8 +268,8 @@ e gere uma nova compilação. As tentativas continuam sendo salvas localmente. D
 
 ## Riscos e pendências
 
-- A migration foi validada estaticamente e por testes, não contra o projeto real.
-- As colunas legadas de `tentativas` foram consideradas conforme o contexto atual do projeto; divergências de tipo devem ser revisadas antes da execução.
+- A migration foi validada estaticamente e por testes, não contra o projeto real e não foi executada.
+- O contrato legado documentado é validado no começo da migration; qualquer divergência deve ser revisada manualmente antes da execução.
 - A fila de tentativas é persistente por usuário e tolera múltiplas abas por meio da idempotência da RPC, mas não substitui coordenação distribuída.
 - Manifests são enviados em modo best-effort; reconciliação persistente e recuperação completa entre dispositivos ficam para a Fase 3B.
 - Não foram adicionados Realtime, PWA, página Progresso, gráficos, revisão do dia ou motor Python.

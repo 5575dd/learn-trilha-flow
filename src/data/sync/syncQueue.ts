@@ -1,4 +1,5 @@
 import { LocalPersistenceError, storageKeys } from "@/data/localStorage";
+import { isAttemptRecord } from "@/data/repositories/AttemptRepository";
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
 
 export type SyncQueueStatus = "pending" | "syncing" | "synced" | "failed";
@@ -62,23 +63,6 @@ function defaultOnlineTarget(): Pick<Window, "addEventListener" | "removeEventLi
   return typeof window === "undefined" ? null : window;
 }
 
-function isAttempt(value: unknown): value is AttemptRecord {
-  if (!value || typeof value !== "object") return false;
-  const attempt = value as Partial<AttemptRecord>;
-  const result = attempt.result as Record<string, unknown> | undefined;
-  return (
-    typeof attempt.attemptId === "string" &&
-    attempt.attemptId.length > 0 &&
-    Number.isSafeInteger(attempt.questionId) &&
-    (attempt.questionId ?? 0) > 0 &&
-    typeof attempt.timeMs === "number" &&
-    Number.isFinite(attempt.timeMs) &&
-    attempt.timeMs >= 0 &&
-    !!result &&
-    ["correct", "incorrect", "neutral", "invalid"].includes(String(result.status))
-  );
-}
-
 function isQueueItem(value: unknown, userId: string): value is SyncQueueItem {
   if (!value || typeof value !== "object") return false;
   const item = value as Partial<SyncQueueItem>;
@@ -91,7 +75,7 @@ function isQueueItem(value: unknown, userId: string): value is SyncQueueItem {
     !!item.payload &&
     item.payload.userId === userId &&
     item.payload.sessionId === item.sessionId &&
-    isAttempt(item.payload.attempt) &&
+    isAttemptRecord(item.payload.attempt) &&
     item.payload.attempt.attemptId === item.attemptId &&
     item.payload.attempt.questionId === item.questionId &&
     ["pending", "syncing", "synced", "failed"].includes(item.status ?? "") &&

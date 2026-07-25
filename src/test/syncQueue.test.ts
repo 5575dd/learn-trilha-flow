@@ -45,6 +45,31 @@ describe("persistent attempt sync queue", () => {
     expect(new PersistentSyncQueue().list("user-a")[0]?.attemptId).toBe("attempt-1");
   });
 
+  it("persists, reloads, and synchronizes a skipped attempt without discarding it", async () => {
+    const skippedAttempt: AttemptRecord = {
+      ...attempt,
+      attemptId: "attempt-skipped",
+      result: { ...attempt.result, status: "skipped" },
+    };
+    new PersistentSyncQueue().enqueue(payload("user-a", skippedAttempt));
+
+    expect(localStorage.getItem(storageKeys.syncQueue("user-a"))).toContain('"skipped"');
+    const reloaded = new PersistentSyncQueue();
+    expect(reloaded.list("user-a")[0]?.payload.attempt.result.status).toBe("skipped");
+
+    const remote = vi.fn(async () => undefined);
+    await reloaded.flush("user-a", remote);
+    expect(remote).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attempt: expect.objectContaining({
+          attemptId: "attempt-skipped",
+          result: expect.objectContaining({ status: "skipped" }),
+        }),
+      }),
+    );
+    expect(reloaded.list("user-a")).toEqual([]);
+  });
+
   it("isolates queues by user", () => {
     const queue = new PersistentSyncQueue();
     queue.enqueue(payload("user-a"));

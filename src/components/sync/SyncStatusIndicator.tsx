@@ -5,16 +5,8 @@ import {
   registerAttemptOnlineFlush,
 } from "@/data/repositories/DualAttemptRepository";
 import { attemptSyncQueue, type SyncQueueItem } from "@/data/sync/syncQueue";
-import { deriveSyncDisplayState, type SyncDisplayState } from "@/data/sync/syncStatus";
+import { deriveSyncDisplayState, SYNC_DISPLAY_LABELS } from "@/data/sync/syncStatus";
 import { WRITES_ENABLED } from "@/lib/supabase";
-
-const labels: Record<SyncDisplayState, string> = {
-  local: "Salvo neste dispositivo",
-  syncing: "Sincronizando",
-  synced: "Sincronizado",
-  failed: "Falha ao sincronizar",
-  offline: "Offline",
-};
 
 export function SyncStatusIndicator() {
   const { session } = useAuth();
@@ -70,7 +62,7 @@ export function SyncStatusIndicator() {
       role="status"
       className="mb-3 flex min-h-9 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700"
     >
-      <span>{labels[state]}</span>
+      <span>{SYNC_DISPLAY_LABELS[state]}</span>
       {state === "failed" && userId && (
         <button
           type="button"

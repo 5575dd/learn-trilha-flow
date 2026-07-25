@@ -116,6 +116,83 @@ describe("SupabaseAttemptRepository", () => {
     });
   });
 
+  it("treats a fully identical serialized payload as the same retry", () => {
+    const original = attemptSerialization.serializeAttempt("session-1", attempt);
+    const reorderedMetadata = attemptSerialization.serializeAttempt("session-1", {
+      ...attempt,
+      result: {
+        ...attempt.result,
+        metadata: { second: 2, source: "evaluator" },
+      },
+    });
+    const sameReorderedMetadata = attemptSerialization.serializeAttempt("session-1", {
+      ...attempt,
+      result: {
+        ...attempt.result,
+        metadata: { source: "evaluator", second: 2 },
+      },
+    });
+
+    expect(attemptSerialization.sameSerializedPayload(original, { ...original })).toBe(true);
+    expect(
+      attemptSerialization.sameSerializedPayload(reorderedMetadata, sameReorderedMetadata),
+    ).toBe(true);
+  });
+
+  it.each([
+    {
+      difference: "question",
+      sessionId: "session-1",
+      changedAttempt: { ...attempt, questionId: 43 },
+    },
+    {
+      difference: "session",
+      sessionId: "session-2",
+      changedAttempt: attempt,
+    },
+    {
+      difference: "answer",
+      sessionId: "session-1",
+      changedAttempt: {
+        ...attempt,
+        result: { ...attempt.result, studentAnswerDisplay: "different answer" },
+      },
+    },
+    {
+      difference: "result status",
+      sessionId: "session-1",
+      changedAttempt: {
+        ...attempt,
+        result: { ...attempt.result, status: "incorrect" },
+      },
+    },
+    {
+      difference: "exact time",
+      sessionId: "session-1",
+      changedAttempt: { ...attempt, timeMs: 1_251 },
+    },
+  ] satisfies Array<{
+    difference: string;
+    sessionId: string;
+    changedAttempt: AttemptRecord;
+  }>)(
+    "rejects reuse of the same attempt ID with a different $difference",
+    ({ sessionId, changedAttempt }) => {
+      const original = attemptSerialization.serializeAttempt("session-1", attempt);
+      const divergent = attemptSerialization.serializeAttempt(sessionId, changedAttempt);
+      expect(attemptSerialization.sameSerializedPayload(original, divergent)).toBe(false);
+    },
+  );
+
+  it("does not invent client_created_at when the local attempt has no timestamp", () => {
+    expect(
+      attemptSerialization.serializeAttempt("session-1", {
+        ...attempt,
+        clientCreatedAt: undefined,
+      }).p_client_created_at,
+    ).toBeNull();
+  });
+
   it("rejects a malformed RPC response", async () => {
     const { client } = rpcClient([{ unexpected: true }]);
     await expect(
