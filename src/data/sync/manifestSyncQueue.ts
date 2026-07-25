@@ -10,6 +10,7 @@ export interface ManifestSyncItem {
   manifestId: string;
   snapshot: SessionManifest;
   operation: "upsert";
+  revision: number;
   status: ManifestSyncStatus;
   retryCount: number;
   createdAt: number;
@@ -51,10 +52,26 @@ function cloneSnapshot(snapshot: SessionManifest): SessionManifest {
   };
 }
 
-function isManifestQueueItem(value: unknown, userId: string): value is ManifestSyncItem {
-  if (!value || typeof value !== "object") return false;
+function normalizeJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeJson);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, normalizeJson(item)]),
+  );
+}
+
+function sameSnapshot(left: SessionManifest, right: SessionManifest): boolean {
+  return JSON.stringify(normalizeJson(left)) === JSON.stringify(normalizeJson(right));
+}
+
+function normalizeManifestQueueItem(value: unknown, userId: string): ManifestSyncItem | null {
+  if (!value || typeof value !== "object") return null;
   const item = value as Partial<ManifestSyncItem>;
-  return (
+  const revision = item.revision === undefined ? 1 : item.revision;
+  const status = item.status;
+  if (
     item.userId === userId &&
     typeof item.manifestId === "string" &&
     item.manifestId.length > 0 &&
@@ -62,14 +79,31 @@ function isManifestQueueItem(value: unknown, userId: string): value is ManifestS
     item.snapshot.userId === userId &&
     item.snapshot.id === item.manifestId &&
     item.operation === "upsert" &&
-    ["pending", "syncing", "failed"].includes(item.status ?? "") &&
+    (status === "pending" || status === "syncing" || status === "failed") &&
+    Number.isSafeInteger(revision) &&
+    revision > 0 &&
     Number.isSafeInteger(item.retryCount) &&
     (item.retryCount ?? -1) >= 0 &&
     typeof item.createdAt === "number" &&
     typeof item.updatedAt === "number" &&
     typeof item.nextRetryAt === "number" &&
     (item.error === undefined || typeof item.error === "string")
-  );
+  ) {
+    return {
+      userId,
+      manifestId: item.manifestId,
+      snapshot: cloneSnapshot(item.snapshot),
+      operation: "upsert",
+      revision,
+      status,
+      retryCount: item.retryCount as number,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      nextRetryAt: item.nextRetryAt,
+      ...(item.error === undefined ? {} : { error: item.error }),
+    };
+  }
+  return null;
 }
 
 function isRetryable(error: unknown): boolean {
@@ -121,10 +155,14 @@ export class PersistentManifestSyncQueue {
       : cloneSnapshot(snapshot);
 
     const now = this.now();
+    const incorporatesNewSnapshot = existing
+      ? !sameSnapshot(existing.snapshot, queuedSnapshot)
+      : true;
     const item: ManifestSyncItem = existing
       ? {
           ...existing,
           snapshot: queuedSnapshot,
+          revision: incorporatesNewSnapshot ? existing.revision + 1 : existing.revision,
           status: "pending",
           updatedAt: now,
           nextRetryAt: now,
@@ -135,6 +173,7 @@ export class PersistentManifestSyncQueue {
           manifestId: snapshot.id,
           snapshot: queuedSnapshot,
           operation: "upsert",
+          revision: 1,
           status: "pending",
           retryCount: 0,
           createdAt: now,
@@ -233,18 +272,20 @@ export class PersistentManifestSyncQueue {
         updatedAt: this.now(),
         error: undefined,
       });
+      const inFlightRevision = current.revision;
+      const inFlightSnapshot = cloneSnapshot(current.snapshot);
       try {
-        await synchronize(cloneSnapshot(current.snapshot));
-        this.removeConfirmed(userId, current.manifestId, current.snapshot.updatedAt);
+        await synchronize(inFlightSnapshot);
+        this.removeConfirmed(userId, current.manifestId, inFlightRevision);
       } catch (error) {
         const latest = this.read(userId).find((item) => item.manifestId === current.manifestId);
-        if (!latest || latest.snapshot.updatedAt !== current.snapshot.updatedAt) {
+        if (!latest || latest.revision !== inFlightRevision) {
           continue;
         }
-        const retryCount = current.retryCount + 1;
+        const retryCount = latest.retryCount + 1;
         const retryable = isRetryable(error);
         this.replace(userId, current.manifestId, {
-          ...current,
+          ...latest,
           status: "failed",
           retryCount,
           updatedAt: this.now(),
@@ -273,17 +314,28 @@ export class PersistentManifestSyncQueue {
         this.removeCorrupt(key);
         return [];
       }
-      const valid = parsed
-        .filter((item): item is ManifestSyncItem => isManifestQueueItem(item, userId))
-        .map((item) =>
-          item.status === "syncing" && item.updatedAt + STALE_SYNC_LOCK_MS <= this.now()
-            ? { ...item, status: "pending" as const, updatedAt: this.now() }
-            : item,
+      let changed = false;
+      const valid: ManifestSyncItem[] = [];
+      for (const rawItem of parsed) {
+        const normalized = normalizeManifestQueueItem(rawItem, userId);
+        if (!normalized) {
+          changed = true;
+          continue;
+        }
+        if (
+          !("revision" in (rawItem as Record<string, unknown>)) ||
+          (normalized.status === "syncing" &&
+            normalized.updatedAt + STALE_SYNC_LOCK_MS <= this.now())
+        ) {
+          changed = true;
+        }
+        valid.push(
+          normalized.status === "syncing" && normalized.updatedAt + STALE_SYNC_LOCK_MS <= this.now()
+            ? { ...normalized, status: "pending", updatedAt: this.now() }
+            : normalized,
         );
-      if (
-        valid.length !== parsed.length ||
-        valid.some((item, index) => item.status !== parsed[index]?.status)
-      ) {
+      }
+      if (changed) {
         this.persist(userId, valid);
       }
       return valid;
@@ -315,10 +367,10 @@ export class PersistentManifestSyncQueue {
     this.persist(userId, next);
   }
 
-  private removeConfirmed(userId: string, manifestId: string, syncedVersion: number): void {
+  private removeConfirmed(userId: string, manifestId: string, syncedRevision: number): void {
     const items = this.read(userId);
     const current = items.find((item) => item.manifestId === manifestId);
-    if (!current || current.snapshot.updatedAt !== syncedVersion) return;
+    if (!current || current.revision !== syncedRevision) return;
     this.persist(
       userId,
       items.filter((item) => item.manifestId !== manifestId),

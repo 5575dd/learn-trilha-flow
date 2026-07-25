@@ -28,16 +28,19 @@ describe("persistent manifest sync queue", () => {
     expect(queue.list("user-a")[0]).toMatchObject({
       manifestId: "manifest-1",
       operation: "upsert",
+      revision: 1,
       status: "pending",
       snapshot: { questionIds: [1, 2] },
     });
   });
 
-  it("deduplicates by manifestId", () => {
+  it("deduplicates by manifestId and increments only for an incorporated snapshot", () => {
     const queue = new PersistentManifestSyncQueue();
-    queue.enqueue("user-a", manifest());
+    expect(queue.enqueue("user-a", manifest()).revision).toBe(1);
+    expect(queue.enqueue("user-a", manifest()).revision).toBe(1);
     queue.enqueue("user-a", manifest({ currentIndex: 1, updatedAt: 101 }));
     expect(queue.list("user-a")).toHaveLength(1);
+    expect(queue.list("user-a")[0]?.revision).toBe(2);
   });
 
   it("keeps the latest manifest version", () => {
@@ -66,8 +69,22 @@ describe("persistent manifest sync queue", () => {
   });
 
   it("survives a reload", () => {
-    new PersistentManifestSyncQueue().enqueue("user-a", manifest());
-    expect(new PersistentManifestSyncQueue().list("user-a")).toHaveLength(1);
+    const queue = new PersistentManifestSyncQueue();
+    queue.enqueue("user-a", manifest());
+    queue.enqueue("user-a", manifest({ currentIndex: 1, updatedAt: 101 }));
+    expect(new PersistentManifestSyncQueue().list("user-a")[0]?.revision).toBe(2);
+  });
+
+  it("migrates a legacy queue item without revision to a validated initial revision", () => {
+    const queue = new PersistentManifestSyncQueue();
+    queue.enqueue("user-a", manifest());
+    const key = storageKeys.manifestSyncQueue("user-a");
+    const legacy = JSON.parse(localStorage.getItem(key) ?? "[]") as Array<Record<string, unknown>>;
+    delete legacy[0]?.revision;
+    localStorage.setItem(key, JSON.stringify(legacy));
+
+    expect(new PersistentManifestSyncQueue().list("user-a")[0]?.revision).toBe(1);
+    expect(JSON.parse(localStorage.getItem(key) ?? "[]")[0]?.revision).toBe(1);
   });
 
   it("discards invalid JSON safely", () => {
@@ -96,6 +113,7 @@ describe("persistent manifest sync queue", () => {
       throw { retryable: true };
     });
     expect(queue.list("user-a")[0]).toMatchObject({
+      revision: 1,
       status: "failed",
       retryCount: 1,
       nextRetryAt: 1_100,
@@ -166,7 +184,7 @@ describe("persistent manifest sync queue", () => {
     ).toThrow(/IDs congelados/);
   });
 
-  it("preserves a newer version queued while an older version is syncing", async () => {
+  it("does not mark snapshot B failed when snapshot A fails in flight in the same millisecond", async () => {
     const queue = new PersistentManifestSyncQueue();
     queue.enqueue("user-a", manifest());
     let reject!: (reason: unknown) => void;
@@ -178,12 +196,52 @@ describe("persistent manifest sync queue", () => {
         }),
     );
     await Promise.resolve();
-    queue.enqueue("user-a", manifest({ currentIndex: 1, updatedAt: 200 }));
+    queue.enqueue("user-a", manifest({ currentIndex: 1, updatedAt: 100 }));
     reject({ retryable: true });
     await flushing;
     expect(queue.list("user-a")[0]).toMatchObject({
+      revision: 2,
       status: "pending",
-      snapshot: { currentIndex: 1, updatedAt: 200 },
+      snapshot: { currentIndex: 1, updatedAt: 100 },
     });
+  });
+
+  it("keeps snapshot B pending after snapshot A succeeds and syncs B on the next flush", async () => {
+    const queue = new PersistentManifestSyncQueue();
+    queue.enqueue("user-a", manifest());
+    let releaseFirst!: () => void;
+    let callCount = 0;
+    const remote = vi.fn((snapshot: SessionManifest) => {
+      callCount++;
+      if (callCount === 1) {
+        return new Promise<void>((resolve) => {
+          releaseFirst = resolve;
+        });
+      }
+      return Promise.resolve();
+    });
+
+    const firstFlush = queue.flush("user-a", remote);
+    await vi.waitFor(() => expect(remote).toHaveBeenCalledOnce());
+    queue.enqueue("user-a", manifest({ currentIndex: 1, updatedAt: 100 }));
+    expect(queue.list("user-a")[0]).toMatchObject({
+      revision: 2,
+      status: "pending",
+      snapshot: { currentIndex: 1, updatedAt: 100 },
+    });
+
+    releaseFirst();
+    await firstFlush;
+    expect(queue.list("user-a")[0]).toMatchObject({
+      revision: 2,
+      status: "pending",
+      snapshot: { currentIndex: 1, updatedAt: 100 },
+    });
+
+    await queue.flush("user-a", remote);
+    expect(remote).toHaveBeenCalledTimes(2);
+    expect(remote.mock.calls[0]?.[0]).toMatchObject({ currentIndex: 0, updatedAt: 100 });
+    expect(remote.mock.calls[1]?.[0]).toMatchObject({ currentIndex: 1, updatedAt: 100 });
+    expect(queue.list("user-a")).toEqual([]);
   });
 });

@@ -28,6 +28,11 @@ Quando a leitura remota falha ou o dispositivo está offline, o aplicativo prese
 - divergências de identidade, origem, critérios ou criação são conflitos permanentes;
 - após autenticação, um bootstrap por usuário prepara tentativas e manifests locais antigos somente quando as escritas estiverem habilitadas;
 - o bootstrap consulta IDs de tentativas remotas quando online, é idempotente e não remove dados locais.
+- o round-trip de tentativas preserva em `metadados` o gabarito visual e sua normalização produzidos pelo parser/evaluator;
+- `tentativas.resposta_correta` continua sendo preenchida no servidor a partir de `public.questoes`; o cliente não envia `p_resposta_correta` nem usa o gabarito visual de `metadados` para validar acerto no banco;
+- linhas antigas sem os novos metadados usam o valor bruto de `resposta_correta` para exibição e o mesmo `normalizeAnswer` compartilhado pelo gameplay para normalização;
+- cada snapshot incorporado à fila de manifests recebe uma `revision` positiva; sucesso ou falha de uma chamada remota só altera a revisão que efetivamente iniciou a chamada;
+- alterações locais de índice ou status avançam `updatedAt` de forma estritamente monotônica, mesmo quando várias ações ocorrem no mesmo milissegundo.
 
 Tentativas sem `clientCreatedAt` são tratadas como legado anterior às tentativas timestampadas. Entre tentativas legadas, a ordem original é preservada; o epoch é usado apenas como fallback determinístico para o cálculo de agenda. Quando a RPC informa `client_created_at_supplied=false`, a reconstrução remota mantém o campo ausente para evitar conflito artificial com a cópia local.
 

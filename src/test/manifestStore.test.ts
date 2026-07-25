@@ -62,6 +62,37 @@ describe("LocalManifestStore", () => {
     expect(updated?.updatedAt).toBeGreaterThan(updated?.createdAt ?? 0);
   });
 
+  it("uses strictly monotonic timestamps for every local mutation in the same millisecond", () => {
+    let id = 0;
+    const store = new LocalManifestStore({
+      createId: () => `manifest-${++id}`,
+      now: () => 100,
+    });
+    const created = store.create({
+      userId: "user-a",
+      source: { kind: "quick" },
+      questionIds: [1, 2],
+    });
+    const active = store.markActive("user-a", created.id);
+    const progressed = store.update("user-a", created.id, { currentIndex: 1 });
+    const completed = store.markCompleted("user-a", created.id);
+    const second = store.create({
+      userId: "user-a",
+      source: { kind: "quick" },
+      questionIds: [3],
+    });
+    const abandoned = store.abandon("user-a", second.id);
+
+    expect(created).toMatchObject({ createdAt: 100, updatedAt: 100 });
+    expect(active?.updatedAt).toBe(101);
+    expect(progressed?.updatedAt).toBe(102);
+    expect(completed).toMatchObject({ updatedAt: 103, completedAt: 103 });
+    expect(completed?.createdAt).toBe(100);
+    expect(second).toMatchObject({ createdAt: 100, updatedAt: 100 });
+    expect(abandoned?.updatedAt).toBe(101);
+    expect(abandoned?.createdAt).toBe(100);
+  });
+
   it("marks active and completed idempotently", () => {
     const store = createStore();
     store.create({

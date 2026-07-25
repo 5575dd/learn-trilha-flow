@@ -87,7 +87,7 @@ export class LocalManifestStore implements ManifestStore {
           ? manifest.currentIndex
           : Math.min(Math.max(0, changes.currentIndex), manifest.questionIds.length);
       if (currentIndex === manifest.currentIndex) return manifest;
-      return { ...manifest, currentIndex, updatedAt: this.now() };
+      return { ...manifest, currentIndex, updatedAt: this.nextUpdatedAt(manifest) };
     });
   }
 
@@ -122,14 +122,14 @@ export class LocalManifestStore implements ManifestStore {
   markActive(userId: string, manifestId: string): SessionManifest | null {
     return this.change(userId, manifestId, (manifest) => {
       if (manifest.status !== "created") return manifest;
-      return { ...manifest, status: "active", updatedAt: this.now() };
+      return { ...manifest, status: "active", updatedAt: this.nextUpdatedAt(manifest) };
     });
   }
 
   markCompleted(userId: string, manifestId: string): SessionManifest | null {
     return this.change(userId, manifestId, (manifest) => {
       if (manifest.status === "completed") return manifest;
-      const now = this.now();
+      const now = this.nextUpdatedAt(manifest);
       return {
         ...manifest,
         status: "completed",
@@ -143,7 +143,7 @@ export class LocalManifestStore implements ManifestStore {
   abandon(userId: string, manifestId: string): SessionManifest | null {
     return this.change(userId, manifestId, (manifest) => {
       if (manifest.status === "completed" || manifest.status === "abandoned") return manifest;
-      return { ...manifest, status: "abandoned", updatedAt: this.now() };
+      return { ...manifest, status: "abandoned", updatedAt: this.nextUpdatedAt(manifest) };
     });
   }
 
@@ -229,6 +229,10 @@ export class LocalManifestStore implements ManifestStore {
   private persist(userId: string, manifests: SessionManifest[]): void {
     writeLocal(storageKeys.manifests(userId), JSON.stringify(manifests));
     this.listeners.get(userId)?.forEach((listener) => listener());
+  }
+
+  private nextUpdatedAt(manifest: SessionManifest): number {
+    return Math.max(this.now(), manifest.updatedAt + 1);
   }
 }
 

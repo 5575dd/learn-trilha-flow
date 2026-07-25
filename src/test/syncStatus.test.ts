@@ -114,6 +114,7 @@ describe("sync status", () => {
         updatedAt: 1,
       },
       operation: "upsert" as const,
+      revision: 1,
       status: "pending" as const,
       retryCount: 0,
       createdAt: 1,

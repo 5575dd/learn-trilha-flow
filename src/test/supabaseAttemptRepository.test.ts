@@ -4,6 +4,7 @@ import {
   SupabaseAttemptRepository,
   attemptSerialization,
 } from "@/data/repositories/SupabaseAttemptRepository";
+import { normalizeAnswer } from "@/domain/answers/answerNormalizer";
 import { consolidateAttempts } from "@/domain/attempts/consolidateAttempts";
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
 
@@ -65,6 +66,8 @@ function remoteRow(overrides: Record<string, unknown> = {}) {
     metadados: {
       diagnostic_code: "match",
       normalized_student_answer: "student answer",
+      correct_answer_display: "server canonical answer",
+      normalized_correct_answer: "server canonical answer",
       evaluation_metadata: { source: "evaluator" },
       tempo_ms: 1_250,
     },
@@ -73,7 +76,7 @@ function remoteRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe("SupabaseAttemptRepository", () => {
-  it("serializes the stable attempt payload without sending the canonical answer", async () => {
+  it("serializes canonical display data only in metadata and never as p_resposta_correta", async () => {
     const { client, rpc } = rpcClient([
       { inserted: true, already_existed: false, next_review_at: null },
     ]);
@@ -91,10 +94,13 @@ describe("SupabaseAttemptRepository", () => {
       p_result_status: "correct",
       p_tempo_ms: 1_250,
       p_modo_estudo: "quick",
+      p_metadados: {
+        correct_answer_display: "server canonical answer",
+        normalized_correct_answer: "server canonical answer",
+      },
     });
     expect(payload).not.toHaveProperty("p_user_id");
     expect(payload).not.toHaveProperty("p_resposta_correta");
-    expect(JSON.stringify(payload)).not.toContain("server canonical answer");
   });
 
   it("accepts a duplicate confirmed by the RPC as an idempotent success", async () => {
@@ -172,6 +178,22 @@ describe("SupabaseAttemptRepository", () => {
       sessionId: "session-1",
       changedAttempt: { ...attempt, timeMs: 1_251 },
     },
+    {
+      difference: "canonical display",
+      sessionId: "session-1",
+      changedAttempt: {
+        ...attempt,
+        result: { ...attempt.result, correctAnswerDisplay: "different canonical display" },
+      },
+    },
+    {
+      difference: "normalized canonical answer",
+      sessionId: "session-1",
+      changedAttempt: {
+        ...attempt,
+        result: { ...attempt.result, normalizedCorrectAnswer: "different-normalized-answer" },
+      },
+    },
   ] satisfies Array<{
     difference: string;
     sessionId: string;
@@ -205,6 +227,129 @@ describe("SupabaseAttemptRepository", () => {
     const { client } = queryClient([remoteRow()]);
     const loaded = await new SupabaseAttemptRepository(() => client).load("user-a", "session-1");
     expect(loaded).toEqual([attempt]);
+  });
+
+  it("keeps canonical visual data for an isolated remote attempt", async () => {
+    const { client } = queryClient([
+      remoteRow({
+        resposta_correta: "A",
+        metadados: {
+          diagnostic_code: "match",
+          normalized_student_answer: "student answer",
+          correct_answer_display: "Paris",
+          normalized_correct_answer: "paris",
+          evaluation_metadata: { source: "evaluator" },
+          tempo_ms: 1_250,
+        },
+      }),
+    ]);
+
+    const [loaded] = await new SupabaseAttemptRepository(() => client).load("user-a", "session-1");
+    expect(loaded?.result).toMatchObject({
+      correctAnswerDisplay: "Paris",
+      normalizedCorrectAnswer: "paris",
+    });
+  });
+
+  it.each([
+    {
+      format: "multiple choice",
+      rawDatabaseAnswer: "A",
+      display: "Paris",
+      normalized: "paris",
+    },
+    {
+      format: "true or false",
+      rawDatabaseAnswer: "não",
+      display: "False",
+      normalized: "false",
+    },
+    {
+      format: "dialogue with JSON and line breaks",
+      rawDatabaseAnswer: '["Hello",\n"How are you?"]',
+      display: "Hello | How are you?",
+      normalized: "hello | how are you",
+    },
+    {
+      format: "trailing punctuation",
+      rawDatabaseAnswer: "Olá, mundo!",
+      display: "Olá, mundo!",
+      normalized: "olá, mundo",
+    },
+    {
+      format: "smart quotes and dash",
+      rawDatabaseAnswer: "“Hello” — world.",
+      display: "“Hello” — world.",
+      normalized: '"hello" - world',
+    },
+  ])(
+    "round-trips canonical $format without a consolidation conflict",
+    ({ rawDatabaseAnswer, display, normalized }) => {
+      const localAttempt: AttemptRecord = {
+        ...attempt,
+        result: {
+          ...attempt.result,
+          correctAnswerDisplay: display,
+          normalizedCorrectAnswer: normalized,
+        },
+      };
+      const serialized = attemptSerialization.serializeAttempt("session-1", localAttempt);
+      const databaseRow = remoteRow({
+        resposta_correta: rawDatabaseAnswer,
+        metadados: {
+          ...serialized.p_metadados,
+          tempo_ms: 1_250,
+          client_created_at_supplied: true,
+        },
+      });
+      const reconstructed = attemptSerialization.reconstructAttempt(
+        databaseRow,
+        "user-a",
+        "session-1",
+      );
+
+      expect(databaseRow.resposta_correta).toBe(rawDatabaseAnswer);
+      expect(serialized).not.toHaveProperty("p_resposta_correta");
+      expect(reconstructed?.result).toMatchObject({
+        correctAnswerDisplay: display,
+        normalizedCorrectAnswer: normalized,
+      });
+      const consolidated = consolidateAttempts({
+        expectedUserId: "user-a",
+        expectedSessionId: "session-1",
+        local: [{ userId: "user-a", sessionId: "session-1", attempt: localAttempt }],
+        remote: [
+          {
+            userId: "user-a",
+            sessionId: "session-1",
+            attempt: reconstructed!,
+          },
+        ],
+      });
+      expect(consolidated.entries).toHaveLength(1);
+      expect(consolidated.conflicts).toEqual([]);
+    },
+  );
+
+  it("uses the exact shared normalizer for legacy rows without canonical metadata", () => {
+    const rawDatabaseAnswer = "  “Olá” — MUNDO?!  ";
+    const reconstructed = attemptSerialization.reconstructAttempt(
+      remoteRow({
+        resposta_correta: rawDatabaseAnswer,
+        metadados: {
+          diagnostic_code: "match",
+          normalized_student_answer: "student answer",
+          evaluation_metadata: { source: "evaluator" },
+          tempo_ms: 1_250,
+        },
+      }),
+      "user-a",
+      "session-1",
+    );
+
+    expect(reconstructed?.result.correctAnswerDisplay).toBe(rawDatabaseAnswer);
+    expect(reconstructed?.result.normalizedCorrectAnswer).toBe(normalizeAnswer(rawDatabaseAnswer));
+    expect(reconstructed?.result.normalizedCorrectAnswer).toBe('"olá" - mundo');
   });
 
   it("does not add an artificial timestamp when the RPC metadata says it was omitted", () => {

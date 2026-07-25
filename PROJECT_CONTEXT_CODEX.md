@@ -48,7 +48,11 @@ Fluxo desejado:
 - A fila trata reload, JSON inválido, quota, retry com backoff limitado, evento online e flush concorrente.
 - O manifest local permanece como resposta imediata e agora entra em fila persistente com deduplicação, retry, backoff, sobrevivência a reload e flush no evento online.
 - Manifests remotos são sincronizados por compare-and-swap do `updated_at` bruto, com retry limitado e consolidação monotônica que não mistura usuários, altera `questionIds`, regride status terminal ou reduz `currentIndex`.
+- A fila de manifests usa uma `revision` positiva independente de `updatedAt`; uma confirmação ou falha remota só afeta o snapshot que iniciou a chamada, inclusive quando outro snapshot é enfileirado no mesmo milissegundo.
+- Mutações locais de índice e status avançam `updatedAt` monotonicamente sem alterar `createdAt`.
 - Tentativas locais e remotas são consolidadas por `attemptId`; conflitos preservam o dado local e geram aviso sanitizado.
+- O round-trip remoto preserva em `metadados` o gabarito visual e normalizado do evaluator, enquanto `tentativas.resposta_correta` permanece sob autoridade do servidor a partir de `public.questoes`; o cliente nunca envia `p_resposta_correta`.
+- Tentativas remotas antigas sem os metadados canônicos exibem o valor bruto de `resposta_correta` e aplicam o `normalizeAnswer` compartilhado.
 - Um bootstrap pós-autenticação, ativo somente quando writes estiverem habilitados, prepara de forma idempotente tentativas e manifests criados anteriormente no modo local.
 - Tentativas legadas sem `clientCreatedAt` permanecem sem timestamp no round-trip remoto e são projetadas antes das tentativas timestampadas, em ordem estável.
 - O aplicativo mostra estado discreto das filas de tentativas e manifests e oferece nova tentativa para as duas sem expor erro técnico.

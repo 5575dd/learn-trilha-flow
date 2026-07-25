@@ -4,6 +4,7 @@ import {
   type AttemptEntry,
   type AttemptRepository,
 } from "@/data/repositories/AttemptRepository";
+import { normalizeAnswer } from "@/domain/answers/answerNormalizer";
 import { isEvaluationStatus } from "@/domain/answers/evaluationTypes";
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
 import { getSupabase } from "@/lib/supabase";
@@ -99,7 +100,15 @@ function reconstructAttempt(
   }
   const evaluationMetadata = objectValue(metadata.evaluation_metadata);
   const milliseconds = finiteNumber(metadata.tempo_ms);
-  const correctAnswer = typeof row.resposta_correta === "string" ? row.resposta_correta : "";
+  const rawCorrectAnswer = typeof row.resposta_correta === "string" ? row.resposta_correta : "";
+  const correctAnswerDisplay =
+    typeof metadata.correct_answer_display === "string"
+      ? metadata.correct_answer_display
+      : rawCorrectAnswer;
+  const normalizedCorrectAnswer =
+    typeof metadata.normalized_correct_answer === "string"
+      ? metadata.normalized_correct_answer
+      : normalizeAnswer(rawCorrectAnswer);
   const createdAt =
     typeof row.client_created_at === "string" ? Date.parse(row.client_created_at) : Number.NaN;
   if (clientCreatedAtSupplied === true && !Number.isFinite(createdAt)) return null;
@@ -110,12 +119,12 @@ function reconstructAttempt(
     result: {
       status: row.result_status,
       studentAnswerDisplay: typeof row.resposta_aluno === "string" ? row.resposta_aluno : "",
-      correctAnswerDisplay: correctAnswer,
+      correctAnswerDisplay,
       normalizedStudentAnswer:
         typeof metadata.normalized_student_answer === "string"
           ? metadata.normalized_student_answer
           : "",
-      normalizedCorrectAnswer: correctAnswer.trim().toLocaleLowerCase("pt-BR"),
+      normalizedCorrectAnswer,
       explanation: typeof row.feedback === "string" ? row.feedback : "",
       diagnosticCode: typeof metadata.diagnostic_code === "string" ? metadata.diagnostic_code : "",
       metadata: evaluationMetadata,
@@ -159,6 +168,8 @@ function serializeAttempt(sessionId: string, attempt: AttemptRecord) {
     p_metadados: {
       diagnostic_code: attempt.result.diagnosticCode,
       normalized_student_answer: attempt.result.normalizedStudentAnswer,
+      correct_answer_display: attempt.result.correctAnswerDisplay,
+      normalized_correct_answer: attempt.result.normalizedCorrectAnswer,
       evaluation_metadata: attempt.result.metadata,
     },
     p_client_created_at:
