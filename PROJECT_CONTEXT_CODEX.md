@@ -32,7 +32,7 @@ Fluxo desejado:
 - Vitest / Testing Library
 - Tailwind
 
-## Estado real após a Fase 2
+## Estado real após a implementação da Fase 3A
 
 - `SessionManifest` local versionado com IDs de questões ordenados e congelados.
 - `manifestStore` isolado por usuário, com validação, recuperação, abandono, conclusão e sincronização básica entre abas.
@@ -43,10 +43,39 @@ Fluxo desejado:
 - Rotas autenticadas reais: `/estudar`, `/sessao?m=<id>` e `/sessao/resultado?m=<id>`.
 - Cards funcionais para continuar, sessão rápida, erros locais, aula e tipo.
 - Rotas antigas por aula permanecem ativas durante a transição e reutilizam o mesmo núcleo.
-- Persistência permanece local-first; não há escrita no Supabase nesta fase.
+- `SupabaseAttemptRepository` chama a RPC autenticada, valida respostas e reconstrói tentativas sem confiar em linhas malformadas.
+- `DualAttemptRepository` salva localmente primeiro e usa uma fila persistente, deduplicada e isolada por usuário.
+- A fila trata reload, JSON inválido, quota, retry com backoff limitado, evento online e flush concorrente.
+- O manifest local permanece como resposta imediata; existe um repositório remoto e uma camada dual best-effort.
+- O aplicativo mostra estado discreto de sincronização e oferece nova tentativa sem expor erro técnico.
+- A política pura de revisão usa 4 horas para erro e 1, 3, 7, 14 e 30 dias para acertos seguidos.
+- A migration `20260725_remote_attempts_spaced_repetition.sql` foi criada, mas **não foi executada**.
+- `VITE_ENABLE_SUPABASE_WRITES=false` continua sendo o padrão; nesse estado nenhuma chamada remota de escrita é feita.
 - O CI usa Bun e executa instalação congelada, typecheck, testes, build e lint.
 
-Ainda não implementado: revisão espaçada, escrita/atomicidade no Supabase, migrations, Realtime, sincronização remota, PWA/service worker, motor Python e redesign.
+### Código implementado na Fase 3A
+
+- cálculo de revisão espaçada em TypeScript;
+- RPC atômica e idempotente definida na migration;
+- repositories Supabase/dual para tentativas;
+- fila offline local-first;
+- contratos remotos para manifests;
+- indicador de sincronização;
+- testes sem internet, credenciais ou Supabase real.
+
+### Migration criada, ainda não ativa
+
+A migration adiciona `revisoes_questoes`, `sessoes_estudo`, colunas de identidade/sincronização em `tentativas`, índices, RLS, policies e a RPC `registrar_tentativa_estudo`. Ela depende de execução e verificação manual no Supabase conforme `docs/SUPABASE_FASE_3A.md`.
+
+### Pendências da Fase 3B
+
+- aplicar e verificar manualmente a migration no ambiente correto;
+- habilitar writes de forma controlada somente depois da verificação;
+- reconciliar manifests entre dispositivos com fila persistente;
+- recuperar tentativas remotas no fluxo local sem bloquear o estudo;
+- definir observabilidade e operação da fila em produção.
+
+Ainda não implementado: Realtime, PWA/service worker, página Progresso, card Revisão do dia, gráficos, motor Python e redesign.
 
 ## Supabase
 
@@ -92,7 +121,7 @@ PRONUNCIATION permanece filtrada. Sem microfone, gravação ou avaliação de pr
 - 3º: 7 dias
 - 4º: 14 dias
 - 5º: 30 dias
-- seguintes: até 60 dias
+- seguintes: 30 dias
 
 Precisa ser idempotente contra retry, duplo clique, fila offline e retomada.
 
