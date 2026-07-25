@@ -57,7 +57,7 @@ function speak(text: string) {
   s.speak(u);
 }
 
-function ListenButton({ text, label = "ðŸ”Š Ouvir" }: { text: string; label?: string }) {
+function ListenButton({ text, label = "🔊 Ouvir" }: { text: string; label?: string }) {
   return (
     <button
       type="button"
@@ -86,7 +86,7 @@ function MCView({
         <p className="rounded-xl bg-purple-50 p-3 text-sm text-slate-700">{q.supportText}</p>
       )}
       {q.kind === "LISTENING_MC" && q.audioText && (
-        <ListenButton text={q.audioText} label="ðŸ”Š Ouvir novamente" />
+        <ListenButton text={q.audioText} label="🔊 Ouvir novamente" />
       )}
       <div className="space-y-2">
         {q.options.map((opt) => {
@@ -223,7 +223,7 @@ function OrderView({
         className={`min-h-16 rounded-2xl border-2 border-dashed border-purple-200 bg-white p-3 ${
           isDialogue ? "space-y-2" : ""
         }`}
-        aria-label={isDialogue ? "DiÃ¡logo montado" : "Frase montada"}
+        aria-label={isDialogue ? "Diálogo montado" : "Frase montada"}
       >
         {isDialogue ? (
           selected.map((id, i) => (
@@ -257,7 +257,7 @@ function OrderView({
       </div>
       <div
         className={isDialogue ? "space-y-2" : "flex flex-wrap gap-2"}
-        aria-label="Blocos disponÃ­veis"
+        aria-label="Blocos disponíveis"
       >
         {remaining.map((b) =>
           isDialogue ? (
@@ -318,7 +318,7 @@ function TextView({
   const stem =
     q.enunciado ||
     (q.kind === "DICTATION"
-      ? "Escreva o que vocÃª ouvir."
+      ? "Escreva o que você ouvir."
       : q.kind === "CORRECTION"
         ? "Corrija a frase abaixo."
         : "Responda com uma frase curta.");
@@ -326,7 +326,7 @@ function TextView({
     <div className="space-y-4">
       <Stem text={stem} />
       {q.kind === "DICTATION" && q.audioText && (
-        <ListenButton text={q.audioText} label="ðŸ”Š Ouvir ditado" />
+        <ListenButton text={q.audioText} label="🔊 Ouvir ditado" />
       )}
       {q.kind === "CORRECTION" && q.supportText && (
         <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-900 line-through">
@@ -365,9 +365,9 @@ function SelfEvalView({
   const stem =
     q.enunciado ||
     (q.kind === "FLASHCARD"
-      ? "Flashcard â€” pense na resposta."
+      ? "Flashcard — pense na resposta."
       : q.kind === "MICROSCENARIO"
-        ? "Como vocÃª responderia neste cenÃ¡rio?"
+        ? "Como você responderia neste cenário?"
         : "Reflita e escreva sua resposta.");
   return (
     <div className="space-y-4">
@@ -379,7 +379,7 @@ function SelfEvalView({
       {q.kind === "FLASHCARD" ? (
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           {revealed ? (
-            <p className="text-base text-slate-900">{q.canonicalAnswerText || "â€”"}</p>
+            <p className="text-base text-slate-900">{q.canonicalAnswerText || "—"}</p>
           ) : (
             <button
               type="button"
@@ -416,7 +416,7 @@ function SelfEvalView({
           onClick={() => onSubmit({ selfEval: "unknown" })}
           className="min-h-12 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-800"
         >
-          Ainda nÃ£o sei
+          Ainda não sei
         </button>
         <button
           type="button"
@@ -424,7 +424,7 @@ function SelfEvalView({
           onClick={() => onSubmit({ selfEval: "know" })}
           className="min-h-12 rounded-2xl bg-emerald-600 text-sm font-semibold text-white"
         >
-          JÃ¡ domino
+          Já domino
         </button>
       </div>
     </div>
