@@ -82,6 +82,14 @@ describe("questionParser", () => {
     );
   });
 
+  it.each(["não", "nao"])("normalizes TF false value %s", (value) => {
+    const entry = parseQuestion(raw({ tipo: "TF", resposta_correta: value }));
+    expect(entry.status).toBe("repairable");
+    if (entry.status === "repairable" && entry.question.kind === "TF") {
+      expect(entry.question.canonicalAnswerText).toBe("False");
+    }
+  });
+
   it("ORDER builds blocks with per-occurrence ids", () => {
     const entry = parseQuestion(
       raw({
