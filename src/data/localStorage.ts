@@ -3,7 +3,7 @@ const PREFIX = "trilha";
 export class LocalPersistenceError extends Error {
   constructor(operation: "read" | "write" | "remove", cause?: unknown) {
     super(
-      `NÃ£o foi possÃ­vel ${operation === "read" ? "ler" : operation === "write" ? "salvar" : "remover"} os dados locais.`,
+      `Não foi possível ${operation === "read" ? "ler" : operation === "write" ? "salvar" : "remover"} os dados locais.`,
     );
     this.name = "LocalPersistenceError";
     this.cause = cause;
