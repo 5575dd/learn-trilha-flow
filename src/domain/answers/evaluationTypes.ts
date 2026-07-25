@@ -1,4 +1,4 @@
-export type EvaluationStatus = "correct" | "incorrect" | "neutral" | "invalid";
+export type EvaluationStatus = "correct" | "incorrect" | "neutral" | "skipped" | "invalid";
 
 export interface EvaluationResult {
   status: EvaluationStatus;
