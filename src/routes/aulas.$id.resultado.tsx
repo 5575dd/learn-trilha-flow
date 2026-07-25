@@ -4,7 +4,7 @@ import { z } from "zod";
 import { RequireAuth } from "@/auth/RequireAuth";
 import { useAuth } from "@/auth/AuthContext";
 import { AppShell } from "@/components/layout/AppShell";
-import { InMemoryAttemptRepository } from "@/data/repositories/AttemptRepository";
+import { attemptRepository } from "@/data/repositories/DualAttemptRepository";
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
 
 const search = z.object({ s: z.string().default("") });
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/aulas/$id/resultado")({
   component: ResultRoute,
 });
 
-const repo = new InMemoryAttemptRepository();
+const repo = attemptRepository;
 
 function ResultRoute() {
   const { id } = Route.useParams();
@@ -75,7 +75,10 @@ function Result({ aulaId, sessionId }: { aulaId: number; sessionId: string }) {
   const correct = attempts.filter((a) => a.result.status === "correct").length;
   const incorrect = attempts.filter((a) => a.result.status === "incorrect").length;
   const ignored = attempts.filter(
-    (a) => a.result.status === "neutral" || a.result.status === "invalid",
+    (a) =>
+      a.result.status === "neutral" ||
+      a.result.status === "skipped" ||
+      a.result.status === "invalid",
   ).length;
   const denom = correct + incorrect;
   const rate = denom === 0 ? 0 : Math.round((correct / denom) * 100);
