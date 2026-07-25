@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, BookOpen, Settings } from "lucide-react";
+import { Home, BookOpen, GraduationCap, Settings } from "lucide-react";
 import { WRITES_ENABLED } from "@/lib/supabase";
 import type { ReactNode } from "react";
 
@@ -39,6 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         <div className="mx-auto flex max-w-md">
           {item("/", "Início", Home)}
+          {item("/estudar", "Estudar", GraduationCap)}
           {item("/aulas", "Aulas", BookOpen)}
           {item("/config", "Ajustes", Settings)}
         </div>
