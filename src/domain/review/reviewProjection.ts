@@ -20,16 +20,21 @@ function chronologicalAttempts(attempts: readonly AttemptRecord[]): AttemptRecor
   attempts.forEach((attempt) => {
     if (!byId.has(attempt.attemptId)) byId.set(attempt.attemptId, attempt);
   });
-  return [...byId.values()].sort((left, right) => {
-    const leftTime = left.clientCreatedAt;
-    const rightTime = right.clientCreatedAt;
-    if (leftTime !== undefined && rightTime !== undefined && leftTime !== rightTime) {
-      return leftTime - rightTime;
-    }
-    if (leftTime !== undefined && rightTime === undefined) return -1;
-    if (leftTime === undefined && rightTime !== undefined) return 1;
-    return left.attemptId.localeCompare(right.attemptId);
-  });
+  return [...byId.values()]
+    .map((attempt, originalIndex) => ({ attempt, originalIndex }))
+    .sort((left, right) => {
+      const leftTime = left.attempt.clientCreatedAt;
+      const rightTime = right.attempt.clientCreatedAt;
+      // Legacy attempts predate timestamped attempts. Their original order is the
+      // only conservative chronology available, so it must remain stable.
+      if (leftTime === undefined && rightTime !== undefined) return -1;
+      if (leftTime !== undefined && rightTime === undefined) return 1;
+      if (leftTime !== undefined && rightTime !== undefined && leftTime !== rightTime) {
+        return leftTime - rightTime;
+      }
+      return left.originalIndex - right.originalIndex;
+    })
+    .map(({ attempt }) => attempt);
 }
 
 export function applyAttemptsToReviewStates(
@@ -51,7 +56,13 @@ export function applyAttemptsToReviewStates(
       lastAnsweredAt: null,
       nextReviewAt: null,
     };
+    // Epoch is only a deterministic scheduling fallback for legacy attempts; it
+    // cannot make them newer than an attempt that supplied a real timestamp.
     const baseTime = new Date(attempt.clientCreatedAt ?? 0);
+    if (previous.lastAnsweredAt !== null && baseTime.getTime() < previous.lastAnsweredAt) {
+      knownAttemptIds.add(attempt.attemptId);
+      continue;
+    }
     const calculation = calculateSpacedRepetition(
       attempt.result.status,
       previous.consecutiveCorrect,

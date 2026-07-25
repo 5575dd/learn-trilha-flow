@@ -47,8 +47,10 @@ Fluxo desejado:
 - `DualAttemptRepository` salva localmente primeiro e usa uma fila persistente, deduplicada e isolada por usuário.
 - A fila trata reload, JSON inválido, quota, retry com backoff limitado, evento online e flush concorrente.
 - O manifest local permanece como resposta imediata e agora entra em fila persistente com deduplicação, retry, backoff, sobrevivência a reload e flush no evento online.
-- Manifests remotos são hidratados e consolidados sem misturar usuários, alterar `questionIds`, regredir status terminal ou reduzir `currentIndex`.
+- Manifests remotos são sincronizados por compare-and-swap do `updated_at` bruto, com retry limitado e consolidação monotônica que não mistura usuários, altera `questionIds`, regride status terminal ou reduz `currentIndex`.
 - Tentativas locais e remotas são consolidadas por `attemptId`; conflitos preservam o dado local e geram aviso sanitizado.
+- Um bootstrap pós-autenticação, ativo somente quando writes estiverem habilitados, prepara de forma idempotente tentativas e manifests criados anteriormente no modo local.
+- Tentativas legadas sem `clientCreatedAt` permanecem sem timestamp no round-trip remoto e são projetadas antes das tentativas timestampadas, em ordem estável.
 - O aplicativo mostra estado discreto das filas de tentativas e manifests e oferece nova tentativa para as duas sem expor erro técnico.
 - A política pura de revisão usa 4 horas para erro e 1, 3, 7, 14 e 30 dias para acertos seguidos.
 - A migration `20260725_remote_attempts_spaced_repetition.sql` foi executada manualmente no projeto correto e as 11 verificações operacionais informadas passaram.

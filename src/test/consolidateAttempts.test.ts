@@ -72,4 +72,21 @@ describe("attempt consolidation", () => {
     expect(result.entries).toEqual([]);
     expect(result.conflicts[0]?.code).toBe("scope_conflict");
   });
+
+  it("orders legacy attempts before timestamped attempts while preserving legacy order", () => {
+    const result = consolidateAttempts({
+      expectedUserId: "user-a",
+      local: [
+        entry("local", { attemptId: "legacy-first", clientCreatedAt: undefined }),
+        entry("local", { attemptId: "legacy-second", clientCreatedAt: undefined }),
+        entry("local", { attemptId: "recent", clientCreatedAt: 10 }),
+      ],
+      remote: [],
+    });
+    expect(result.entries.map(({ attempt }) => attempt.attemptId)).toEqual([
+      "legacy-first",
+      "legacy-second",
+      "recent",
+    ]);
+  });
 });

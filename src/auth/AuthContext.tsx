@@ -11,6 +11,7 @@ import type { Session } from "@supabase/supabase-js";
 import { getSupabase } from "@/lib/supabase";
 import { clearTransientInterfaceStorage } from "@/data/localStorage";
 import { hydrateManifestStore } from "@/data/manifestStore";
+import { bootstrapLocalDataForUser } from "@/data/sync/bootstrapLocalData";
 
 interface AuthContextValue {
   session: Session | null;
@@ -46,7 +47,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const userId = session?.user.id;
-    if (userId) void hydrateManifestStore(userId);
+    if (!userId) return;
+    void hydrateManifestStore(userId);
+    void bootstrapLocalDataForUser(userId);
+    if (typeof window === "undefined") return;
+    const retryBootstrap = () => void bootstrapLocalDataForUser(userId);
+    window.addEventListener("online", retryBootstrap);
+    return () => window.removeEventListener("online", retryBootstrap);
   }, [session?.user.id]);
 
   const signIn = useCallback(async (email: string, password: string) => {

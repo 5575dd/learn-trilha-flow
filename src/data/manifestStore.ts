@@ -335,13 +335,7 @@ export class DualManifestStore implements ManifestStore {
     }
     let pass = 0;
     do {
-      await this.queue.flush(
-        userId,
-        async (snapshot) => {
-          await this.remote.upsert(snapshot);
-        },
-        force,
-      );
+      await this.queue.flush(userId, (snapshot) => this.synchronizeSnapshot(snapshot), force);
       pass++;
     } while (
       pass < 10 &&
@@ -353,9 +347,7 @@ export class DualManifestStore implements ManifestStore {
 
   registerOnlineFlush(userId: string): () => void {
     if (!this.writesEnabled) return () => undefined;
-    return this.queue.registerOnlineFlush(userId, async (snapshot) => {
-      await this.remote.upsert(snapshot);
-    });
+    return this.queue.registerOnlineFlush(userId, (snapshot) => this.synchronizeSnapshot(snapshot));
   }
 
   hydrate(
@@ -404,7 +396,13 @@ export class DualManifestStore implements ManifestStore {
               this.queue.hasPending(userId, remoteManifest.id) ||
               this.unscheduled.get(userId)?.has(remoteManifest.id) === true,
           });
-          if (!local || merged.updatedAt !== local.updatedAt || merged.status !== local.status) {
+          if (
+            !local ||
+            merged.updatedAt !== local.updatedAt ||
+            merged.status !== local.status ||
+            merged.currentIndex !== local.currentIndex ||
+            merged.completedAt !== local.completedAt
+          ) {
             this.local.saveSnapshot(merged);
           }
         } catch {
@@ -426,6 +424,25 @@ export class DualManifestStore implements ManifestStore {
         conflicts: 0,
         error: "Não foi possível recuperar sessões remotas. Os dados locais continuam disponíveis.",
       };
+    }
+  }
+
+  private async synchronizeSnapshot(snapshot: SessionManifest): Promise<void> {
+    const confirmed = await this.remote.synchronize(snapshot);
+    const local = this.local.get(snapshot.userId, snapshot.id);
+    const merged = mergeManifestSnapshots({
+      expectedUserId: snapshot.userId,
+      local,
+      remote: confirmed,
+    });
+    if (
+      !local ||
+      merged.updatedAt !== local.updatedAt ||
+      merged.status !== local.status ||
+      merged.currentIndex !== local.currentIndex ||
+      merged.completedAt !== local.completedAt
+    ) {
+      this.local.saveSnapshot(merged);
     }
   }
 }

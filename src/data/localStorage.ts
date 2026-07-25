@@ -25,6 +25,8 @@ export const storageKeys = {
   manifests: (userId: string) => `${PREFIX}.user.${segment(userId)}.manifests`,
   syncQueue: (userId: string) => `${PREFIX}.user.${segment(userId)}.sync.attempts`,
   manifestSyncQueue: (userId: string) => `${PREFIX}.user.${segment(userId)}.sync.manifests`,
+  initialSyncPrepared: (userId: string) =>
+    `${PREFIX}.user.${segment(userId)}.sync.initial-prepared.v1`,
 };
 
 export function readLocal(key: string): string | null {

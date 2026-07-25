@@ -43,18 +43,6 @@ function cloneEntry(entry: AttemptEntry): AttemptEntry {
   };
 }
 
-function compareEntries(left: AttemptEntry, right: AttemptEntry): number {
-  const leftTime = left.attempt.clientCreatedAt;
-  const rightTime = right.attempt.clientCreatedAt;
-  if (leftTime !== undefined && rightTime !== undefined && leftTime !== rightTime) {
-    return leftTime - rightTime;
-  }
-  if (leftTime !== undefined && rightTime === undefined) return -1;
-  if (leftTime === undefined && rightTime !== undefined) return 1;
-  const session = left.sessionId.localeCompare(right.sessionId);
-  return session || left.attempt.attemptId.localeCompare(right.attempt.attemptId);
-}
-
 export function consolidateAttempts({
   expectedUserId,
   expectedSessionId,
@@ -92,7 +80,19 @@ export function consolidateAttempts({
   remote.forEach((entry) => accept(entry, false));
   local.forEach((entry) => accept(entry, true));
   return {
-    entries: [...byId.values()].sort(compareEntries),
+    entries: [...byId.values()]
+      .map((entry, originalIndex) => ({ entry, originalIndex }))
+      .sort((left, right) => {
+        const leftTime = left.entry.attempt.clientCreatedAt;
+        const rightTime = right.entry.attempt.clientCreatedAt;
+        if (leftTime === undefined && rightTime !== undefined) return -1;
+        if (leftTime !== undefined && rightTime === undefined) return 1;
+        if (leftTime !== undefined && rightTime !== undefined && leftTime !== rightTime) {
+          return leftTime - rightTime;
+        }
+        return left.originalIndex - right.originalIndex;
+      })
+      .map(({ entry }) => entry),
     conflicts,
   };
 }

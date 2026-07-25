@@ -54,7 +54,7 @@ describe("remote manifest consolidation", () => {
     );
   });
 
-  it("preserves a pending local snapshot", () => {
+  it("does not let a pending local snapshot regress the remote index", () => {
     const local = manifest({ currentIndex: 1, updatedAt: 10 });
     const remote = manifest({ currentIndex: 2, updatedAt: 20 });
     expect(
@@ -64,7 +64,7 @@ describe("remote manifest consolidation", () => {
         remote,
         localPending: true,
       }).currentIndex,
-    ).toBe(1);
+    ).toBe(2);
   });
 
   it("does not regress currentIndex just because the remote timestamp is newer", () => {
@@ -84,4 +84,41 @@ describe("remote manifest consolidation", () => {
       }),
     ).toThrow(/combinar uma sessão/);
   });
+
+  it("keeps abandoned terminal against a newer active snapshot", () => {
+    const local = manifest({ status: "abandoned", currentIndex: 1, updatedAt: 10 });
+    const remote = manifest({ status: "active", currentIndex: 2, updatedAt: 20 });
+    expect(mergeManifestSnapshots({ expectedUserId: "user-a", local, remote })).toMatchObject({
+      status: "abandoned",
+      currentIndex: 2,
+    });
+  });
+
+  it("lets completed win over abandoned with completion evidence", () => {
+    const local = manifest({
+      status: "completed",
+      currentIndex: 2,
+      completedAt: 9,
+      updatedAt: 10,
+    });
+    const remote = manifest({ status: "abandoned", currentIndex: 1, updatedAt: 20 });
+    expect(mergeManifestSnapshots({ expectedUserId: "user-a", local, remote })).toMatchObject({
+      status: "completed",
+      currentIndex: 2,
+      completedAt: 9,
+    });
+  });
+
+  it.each([{ source: { kind: "errors" as const } }, { criteria: { limit: 1 } }, { createdAt: 2 }])(
+    "rejects incompatible immutable fields",
+    (overrides) => {
+      expect(() =>
+        mergeManifestSnapshots({
+          expectedUserId: "user-a",
+          local: manifest(),
+          remote: manifest(overrides),
+        }),
+      ).toThrow(/combinar uma sessão/);
+    },
+  );
 });

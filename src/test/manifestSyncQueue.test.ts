@@ -47,6 +47,24 @@ describe("persistent manifest sync queue", () => {
     expect(queue.list("user-a")[0]?.snapshot.currentIndex).toBe(1);
   });
 
+  it("never replaces a queued completed snapshot with a newer active snapshot", () => {
+    const queue = new PersistentManifestSyncQueue();
+    queue.enqueue(
+      "user-a",
+      manifest({
+        status: "completed",
+        currentIndex: 2,
+        completedAt: 150,
+        updatedAt: 150,
+      }),
+    );
+    queue.enqueue("user-a", manifest({ status: "active", currentIndex: 1, updatedAt: 200 }));
+    expect(queue.list("user-a")[0]?.snapshot).toMatchObject({
+      status: "completed",
+      currentIndex: 2,
+    });
+  });
+
   it("survives a reload", () => {
     new PersistentManifestSyncQueue().enqueue("user-a", manifest());
     expect(new PersistentManifestSyncQueue().list("user-a")).toHaveLength(1);

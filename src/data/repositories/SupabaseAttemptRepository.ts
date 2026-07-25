@@ -48,8 +48,14 @@ interface RpcResultRow {
   next_review_at?: unknown;
 }
 
+interface RemoteAttemptIdentityRow {
+  user_id?: unknown;
+  attempt_id?: unknown;
+}
+
 const REMOTE_COLUMNS =
   "user_id, attempt_id, session_id, questao_id, resposta_aluno, resposta_correta, feedback, tempo_segundos, result_status, client_created_at, modo_estudo, metadados";
+const REMOTE_ID_COLUMNS = "user_id, attempt_id";
 
 function finiteNumber(value: unknown): number | null {
   const number = typeof value === "number" ? value : Number(value);
@@ -87,11 +93,16 @@ function reconstructAttempt(
   }
 
   const metadata = objectValue(row.metadados);
+  const clientCreatedAtSupplied = metadata.client_created_at_supplied;
+  if (clientCreatedAtSupplied !== undefined && typeof clientCreatedAtSupplied !== "boolean") {
+    return null;
+  }
   const evaluationMetadata = objectValue(metadata.evaluation_metadata);
   const milliseconds = finiteNumber(metadata.tempo_ms);
   const correctAnswer = typeof row.resposta_correta === "string" ? row.resposta_correta : "";
   const createdAt =
     typeof row.client_created_at === "string" ? Date.parse(row.client_created_at) : Number.NaN;
+  if (clientCreatedAtSupplied === true && !Number.isFinite(createdAt)) return null;
   const attempt: AttemptRecord = {
     attemptId: row.attempt_id,
     questionId,
@@ -109,7 +120,9 @@ function reconstructAttempt(
       diagnosticCode: typeof metadata.diagnostic_code === "string" ? metadata.diagnostic_code : "",
       metadata: evaluationMetadata,
     },
-    ...(Number.isFinite(createdAt) ? { clientCreatedAt: createdAt } : {}),
+    ...(clientCreatedAtSupplied !== false && Number.isFinite(createdAt)
+      ? { clientCreatedAt: createdAt }
+      : {}),
     ...(typeof row.modo_estudo === "string" ? { sessionMode: row.modo_estudo } : {}),
   };
   return isAttemptRecord(attempt) ? attempt : null;
@@ -251,6 +264,34 @@ export class SupabaseAttemptRepository implements AttemptRepository {
       .order("respondido_em", { ascending: true });
     if (error) throw classifyError(error);
     return this.parseRows(data, userId);
+  }
+
+  async listAttemptIdsByUser(userId: string): Promise<Set<string>> {
+    if (!userId) return new Set();
+    const { data, error } = await this.clientFactory()
+      .from("tentativas")
+      .select(REMOTE_ID_COLUMNS)
+      .eq("user_id", userId)
+      .order("attempt_id", { ascending: true });
+    if (error) throw classifyError(error);
+    if (!Array.isArray(data)) {
+      throw new RemoteAttemptError("Resposta remota malformada.", { retryable: false });
+    }
+    const ids = new Set<string>();
+    for (const value of data) {
+      const row = value as RemoteAttemptIdentityRow;
+      if (
+        row.user_id !== userId ||
+        typeof row.attempt_id !== "string" ||
+        row.attempt_id.length === 0
+      ) {
+        throw new RemoteAttemptError("Tentativa remota malformada ou de outro usuário.", {
+          retryable: false,
+        });
+      }
+      ids.add(row.attempt_id);
+    }
+    return ids;
   }
 
   async clear(): Promise<void> {

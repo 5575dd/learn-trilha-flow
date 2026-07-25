@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { dueReviews, projectLocalReviews } from "@/domain/review/reviewProjection";
+import {
+  applyAttemptsToReviewStates,
+  dueReviews,
+  projectLocalReviews,
+} from "@/domain/review/reviewProjection";
 import type { EvaluationStatus } from "@/domain/answers/evaluationTypes";
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
 
@@ -81,5 +85,50 @@ describe("local review projection", () => {
     const reviews = projectLocalReviews([duplicated, { ...duplicated }]);
     expect(reviews).toHaveLength(1);
     expect(reviews[0]?.totalAttempts).toBe(1);
+  });
+
+  it("processes a legacy incorrect attempt before a newer timestamped correct attempt", () => {
+    const legacy = {
+      ...attempt("legacy-incorrect", "incorrect", base),
+      clientCreatedAt: undefined,
+    };
+    const recent = attempt("recent-correct", "correct", base + hour);
+    const [review] = projectLocalReviews([recent, legacy]);
+    expect(review).toMatchObject({
+      consecutiveCorrect: 1,
+      totalAttempts: 2,
+      totalCorrect: 1,
+      lastAnsweredAt: base + hour,
+      lastAttemptId: "recent-correct",
+    });
+  });
+
+  it("does not let a pending legacy attempt overwrite an existing recent review state", () => {
+    const [review] = applyAttemptsToReviewStates(
+      [
+        {
+          questionId: 1,
+          consecutiveCorrect: 1,
+          totalAttempts: 1,
+          totalCorrect: 1,
+          lastAnsweredAt: base,
+          nextReviewAt: base + day,
+          lastAttemptId: "recent-correct",
+        },
+      ],
+      [
+        {
+          ...attempt("legacy-incorrect", "incorrect", base - hour),
+          clientCreatedAt: undefined,
+        },
+      ],
+    );
+    expect(review).toMatchObject({
+      consecutiveCorrect: 1,
+      totalAttempts: 1,
+      totalCorrect: 1,
+      lastAnsweredAt: base,
+      lastAttemptId: "recent-correct",
+    });
   });
 });

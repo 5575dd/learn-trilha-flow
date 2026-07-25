@@ -4,6 +4,7 @@ import {
   SupabaseAttemptRepository,
   attemptSerialization,
 } from "@/data/repositories/SupabaseAttemptRepository";
+import { consolidateAttempts } from "@/domain/attempts/consolidateAttempts";
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
 
 const attempt: AttemptRecord = {
@@ -204,6 +205,83 @@ describe("SupabaseAttemptRepository", () => {
     const { client } = queryClient([remoteRow()]);
     const loaded = await new SupabaseAttemptRepository(() => client).load("user-a", "session-1");
     expect(loaded).toEqual([attempt]);
+  });
+
+  it("does not add an artificial timestamp when the RPC metadata says it was omitted", () => {
+    const reconstructed = attemptSerialization.reconstructAttempt(
+      remoteRow({
+        metadados: {
+          diagnostic_code: "match",
+          normalized_student_answer: "student answer",
+          evaluation_metadata: { source: "evaluator" },
+          tempo_ms: 1_250,
+          client_created_at_supplied: false,
+        },
+      }),
+      "user-a",
+      "session-1",
+    );
+    expect(reconstructed).not.toHaveProperty("clientCreatedAt");
+  });
+
+  it("consolidates a local legacy attempt with its remote copy without conflict", () => {
+    const localLegacy = { ...attempt, clientCreatedAt: undefined };
+    const remoteLegacy = attemptSerialization.reconstructAttempt(
+      remoteRow({
+        metadados: {
+          diagnostic_code: "match",
+          normalized_student_answer: "student answer",
+          evaluation_metadata: { source: "evaluator" },
+          tempo_ms: 1_250,
+          client_created_at_supplied: false,
+        },
+      }),
+      "user-a",
+      "session-1",
+    );
+    expect(remoteLegacy).not.toBeNull();
+    const consolidated = consolidateAttempts({
+      expectedUserId: "user-a",
+      expectedSessionId: "session-1",
+      local: [{ userId: "user-a", sessionId: "session-1", attempt: localLegacy }],
+      remote: [
+        {
+          userId: "user-a",
+          sessionId: "session-1",
+          attempt: remoteLegacy!,
+        },
+      ],
+    });
+    expect(consolidated.entries).toHaveLength(1);
+    expect(consolidated.conflicts).toEqual([]);
+  });
+
+  it("preserves a timestamp that the client really supplied", () => {
+    const reconstructed = attemptSerialization.reconstructAttempt(
+      remoteRow({
+        metadados: {
+          diagnostic_code: "match",
+          normalized_student_answer: "student answer",
+          evaluation_metadata: { source: "evaluator" },
+          tempo_ms: 1_250,
+          client_created_at_supplied: true,
+        },
+      }),
+      "user-a",
+      "session-1",
+    );
+    expect(reconstructed?.clientCreatedAt).toBe(attempt.clientCreatedAt);
+  });
+
+  it("lists only validated remote attempt IDs for the authenticated user", async () => {
+    const { client } = queryClient([
+      { user_id: "user-a", attempt_id: "attempt-a" },
+      { user_id: "user-a", attempt_id: "attempt-b" },
+      { user_id: "user-a", attempt_id: "attempt-a" },
+    ]);
+    await expect(
+      new SupabaseAttemptRepository(() => client).listAttemptIdsByUser("user-a"),
+    ).resolves.toEqual(new Set(["attempt-a", "attempt-b"]));
   });
 
   it("deduplicates malformed duplicate rows by attemptId", async () => {

@@ -58,8 +58,11 @@ export function isSessionManifest(value: unknown): value is SessionManifest {
     (manifest.currentIndex ?? -1) >= 0 &&
     (manifest.currentIndex ?? 0) <= manifest.questionIds.length &&
     typeof manifest.createdAt === "number" &&
+    Number.isFinite(manifest.createdAt) &&
     typeof manifest.updatedAt === "number" &&
-    (manifest.completedAt === undefined || typeof manifest.completedAt === "number")
+    Number.isFinite(manifest.updatedAt) &&
+    (manifest.completedAt === undefined ||
+      (typeof manifest.completedAt === "number" && Number.isFinite(manifest.completedAt)))
   );
 }
 

@@ -20,6 +20,17 @@ Esta entrega não executa SQL, não cria migration e não altera o schema.
 
 Quando a leitura remota falha ou o dispositivo está offline, o aplicativo preserva o funcionamento local e informa que os dados exibidos podem estar limitados ao dispositivo.
 
+## Sincronização segura
+
+- manifests usam leitura, consolidação monotônica e compare-and-swap pelo texto bruto de `updated_at`;
+- uma corrida provoca nova leitura e nova consolidação, com limite explícito de três tentativas;
+- status terminal, maior `currentIndex` e `questionIds` congelados não podem regredir;
+- divergências de identidade, origem, critérios ou criação são conflitos permanentes;
+- após autenticação, um bootstrap por usuário prepara tentativas e manifests locais antigos somente quando as escritas estiverem habilitadas;
+- o bootstrap consulta IDs de tentativas remotas quando online, é idempotente e não remove dados locais.
+
+Tentativas sem `clientCreatedAt` são tratadas como legado anterior às tentativas timestampadas. Entre tentativas legadas, a ordem original é preservada; o epoch é usado apenas como fallback determinístico para o cálculo de agenda. Quando a RPC informa `client_created_at_supplied=false`, a reconstrução remota mantém o campo ausente para evitar conflito artificial com a cópia local.
+
 ## Flag e ativação
 
 `VITE_ENABLE_SUPABASE_WRITES=false` permanece sendo o padrão. Nesse modo não há chamadas de escrita remota e as leituras de tentativas, revisões e manifests remotos também permanecem desabilitadas para manter comportamento previsível.

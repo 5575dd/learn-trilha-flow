@@ -1,6 +1,7 @@
 import { LocalPersistenceError, storageKeys } from "@/data/localStorage";
 import { isSessionManifest, type SessionManifest } from "@/domain/session/sessionManifest";
 import { computeRetryDelay, type SyncFailure } from "@/data/sync/syncQueue";
+import { mergeManifestSnapshots } from "@/domain/session/mergeManifests";
 
 export type ManifestSyncStatus = "pending" | "syncing" | "failed";
 
@@ -39,10 +40,6 @@ function defaultStorage(): ManifestQueueStorage | null {
 
 function defaultOnlineTarget(): Pick<Window, "addEventListener" | "removeEventListener"> | null {
   return typeof window === "undefined" ? null : window;
-}
-
-function sameQuestionIds(left: readonly number[], right: readonly number[]): boolean {
-  return left.length === right.length && left.every((id, index) => id === right[index]);
 }
 
 function cloneSnapshot(snapshot: SessionManifest): SessionManifest {
@@ -115,16 +112,19 @@ export class PersistentManifestSyncQueue {
     }
     const items = this.read(userId);
     const existing = items.find((item) => item.manifestId === snapshot.id);
-    if (existing && !sameQuestionIds(existing.snapshot.questionIds, snapshot.questionIds)) {
-      throw new Error("Os IDs congelados da sessão não podem ser alterados.");
-    }
-    if (existing && snapshot.updatedAt < existing.snapshot.updatedAt) return this.clone(existing);
+    const queuedSnapshot = existing
+      ? mergeManifestSnapshots({
+          expectedUserId: userId,
+          local: existing.snapshot,
+          remote: snapshot,
+        })
+      : cloneSnapshot(snapshot);
 
     const now = this.now();
     const item: ManifestSyncItem = existing
       ? {
           ...existing,
-          snapshot: cloneSnapshot(snapshot),
+          snapshot: queuedSnapshot,
           status: "pending",
           updatedAt: now,
           nextRetryAt: now,
@@ -133,7 +133,7 @@ export class PersistentManifestSyncQueue {
       : {
           userId,
           manifestId: snapshot.id,
-          snapshot: cloneSnapshot(snapshot),
+          snapshot: queuedSnapshot,
           operation: "upsert",
           status: "pending",
           retryCount: 0,
