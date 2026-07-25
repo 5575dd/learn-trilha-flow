@@ -24,6 +24,7 @@ export interface AttemptRepository {
   save(userId: string, sessionId: string, attempt: AttemptRecord): Promise<void>;
   load(userId: string, sessionId: string): Promise<AttemptRecord[]>;
   clear(userId: string, sessionId: string): Promise<void>;
+  listByUser(userId: string): Promise<AttemptRecord[]>;
 }
 
 function isAttempt(value: unknown): value is AttemptRecord {
@@ -82,6 +83,19 @@ export class InMemoryAttemptRepository implements AttemptRepository {
   async clear(userId: string, sessionId: string): Promise<void> {
     removeLocal(storageKeys.attempts(userId, sessionId));
     this.store.delete(this.cacheKey(userId, sessionId));
+  }
+
+  async listByUser(userId: string): Promise<AttemptRecord[]> {
+    if (typeof window === "undefined") return [];
+    const keyPrefix = storageKeys.attemptsPrefix(userId);
+    const attempts: AttemptRecord[] = [];
+    for (let index = 0; index < window.localStorage.length; index++) {
+      const key = window.localStorage.key(index);
+      if (!key?.startsWith(keyPrefix)) continue;
+      const sessionId = decodeURIComponent(key.slice(keyPrefix.length));
+      attempts.push(...this.hydrate(userId, sessionId));
+    }
+    return attempts;
   }
 }
 
@@ -151,5 +165,8 @@ export class SupabaseAttemptRepository implements AttemptRepository {
   }
   async clear(): Promise<void> {
     // Writes remain deliberately disabled in phase 1.
+  }
+  async listByUser(): Promise<AttemptRecord[]> {
+    return [];
   }
 }
