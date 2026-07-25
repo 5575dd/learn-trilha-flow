@@ -42,6 +42,14 @@ export interface StudySessionProps {
 
 const defaultRepository = attemptRepository;
 
+function fallbackSessionId(aulaId: number): string {
+  const randomPart =
+    typeof globalThis.crypto?.randomUUID === "function"
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `aula-${aulaId}-${randomPart}`;
+}
+
 export function StudySession({
   aulaId,
   userId,
@@ -105,6 +113,23 @@ export function StudySession({
           const nextIndex = Math.max(manifest.currentIndex, currentIndex);
           return store.update(userId, sessionId, { currentIndex: nextIndex }) ?? manifest;
         };
+        const allocateSessionId = (excludedId?: string) => {
+          const requestedId = createSessionId?.();
+          if (
+            requestedId &&
+            requestedId !== excludedId &&
+            store.get(userId, requestedId) === null
+          ) {
+            return requestedId;
+          }
+          for (let attempt = 0; attempt < 10; attempt++) {
+            const candidate = fallbackSessionId(aulaId);
+            if (candidate !== excludedId && store.get(userId, candidate) === null) {
+              return candidate;
+            }
+          }
+          throw new Error("Não foi possível criar um ID exclusivo para a nova sessão.");
+        };
 
         if (snapshot && requestedMode === "normal") {
           const manifest = ensureManifest(snapshot.sessionId, snapshot.currentIndex);
@@ -116,9 +141,11 @@ export function StudySession({
           }
         }
 
+        const restartedSessionId =
+          snapshot && requestedMode === "restart" ? snapshot.sessionId : undefined;
         if (snapshot && requestedMode === "restart") {
+          ensureManifest(snapshot.sessionId, snapshot.currentIndex);
           store.abandon(userId, snapshot.sessionId);
-          await repository.clear(userId, snapshot.sessionId);
           clearSessionSnapshot(userId, aulaId);
         }
 
@@ -126,7 +153,7 @@ export function StudySession({
         const manifest = shouldResume
           ? ensureManifest(snapshot.sessionId, snapshot.currentIndex)
           : (() => {
-              const sessionId = createSessionId?.() ?? `aula-${aulaId}-${Date.now()}`;
+              const sessionId = allocateSessionId(restartedSessionId);
               return ensureManifest(sessionId);
             })();
         if (manifest.status === "abandoned") {
