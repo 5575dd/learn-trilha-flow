@@ -10,12 +10,17 @@ import {
   buildQuickQuestionIds,
 } from "@/domain/session/sessionSourceBuilder";
 import type { SessionCriteria, SessionSource } from "@/domain/session/sessionManifest";
+import type { ReviewState } from "@/domain/review/reviewProjection";
 
 export interface StudyHubProps {
   userId: string;
   aulas: readonly AulaListItem[];
   questions: readonly ValidQuestion[];
   attempts: readonly AttemptRecord[];
+  dueReviewItems?: readonly ReviewState[];
+  reviewLoading?: boolean;
+  reviewError?: string;
+  reviewLocalOnly?: boolean;
   store?: ManifestStore;
   random?: () => number;
   onOpenManifest: (manifestId: string) => void;
@@ -26,6 +31,10 @@ export function StudyHub({
   aulas,
   questions,
   attempts,
+  dueReviewItems = [],
+  reviewLoading = false,
+  reviewError = "",
+  reviewLocalOnly = false,
   store = manifestStore,
   random,
   onOpenManifest,
@@ -97,6 +106,50 @@ export function StudyHub({
       ) : (
         <p className="text-sm text-slate-500">Nenhuma sessão recuperável.</p>
       )}
+
+      <StudyCard title="Revisão do dia">
+        {reviewLoading ? (
+          <p className="text-sm text-slate-500">Carregando revisões…</p>
+        ) : (
+          <>
+            {reviewError && <p className="text-sm text-amber-700">{reviewError}</p>}
+            {reviewLocalOnly && (
+              <p className="text-xs font-medium text-amber-700">Dados somente deste dispositivo</p>
+            )}
+            {dueReviewItems.length > 0 ? (
+              <>
+                <p className="text-sm text-slate-600">
+                  {dueReviewItems.length}{" "}
+                  {dueReviewItems.length === 1 ? "questão vencida" : "questões vencidas"}
+                </p>
+                <Action
+                  onClick={() => {
+                    const availableIds = new Set(questions.map((question) => question.id));
+                    const ids = [
+                      ...new Set(
+                        dueReviewItems
+                          .map((review) => review.questionId)
+                          .filter(
+                            (id) => Number.isSafeInteger(id) && id > 0 && availableIds.has(id),
+                          ),
+                      ),
+                    ];
+                    if (ids.length === 0) {
+                      setMessage("Nenhuma revisão vencida está disponível no momento.");
+                      return;
+                    }
+                    createAndOpen({ kind: "dueReview" }, {}, ids);
+                  }}
+                >
+                  Iniciar revisão do dia
+                </Action>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500">Nenhuma revisão vencida hoje.</p>
+            )}
+          </>
+        )}
+      </StudyCard>
 
       <StudyCard title="Sessão rápida">
         <p className="text-sm text-slate-500">Até 10 questões variadas.</p>

@@ -32,7 +32,7 @@ Fluxo desejado:
 - Vitest / Testing Library
 - Tailwind
 
-## Estado real após a implementação da Fase 3A
+## Estado real após a implementação da Fase 3B
 
 - `SessionManifest` local versionado com IDs de questões ordenados e congelados.
 - `manifestStore` isolado por usuário, com validação, recuperação, abandono, conclusão e sincronização básica entre abas.
@@ -46,10 +46,21 @@ Fluxo desejado:
 - `SupabaseAttemptRepository` chama a RPC autenticada, valida respostas e reconstrói tentativas sem confiar em linhas malformadas.
 - `DualAttemptRepository` salva localmente primeiro e usa uma fila persistente, deduplicada e isolada por usuário.
 - A fila trata reload, JSON inválido, quota, retry com backoff limitado, evento online e flush concorrente.
-- O manifest local permanece como resposta imediata; existe um repositório remoto e uma camada dual best-effort.
-- O aplicativo mostra estado discreto de sincronização e oferece nova tentativa sem expor erro técnico.
+- O manifest local permanece como resposta imediata e agora entra em fila persistente com deduplicação, retry, backoff, sobrevivência a reload e flush no evento online.
+- Manifests remotos são sincronizados por compare-and-swap do `updated_at` bruto, com retry limitado e consolidação monotônica que não mistura usuários, altera `questionIds`, regride status terminal ou reduz `currentIndex`.
+- A fila de manifests usa uma `revision` positiva independente de `updatedAt`; uma confirmação ou falha remota só afeta o snapshot que iniciou a chamada, inclusive quando outro snapshot é enfileirado no mesmo milissegundo.
+- Mutações locais de índice e status avançam `updatedAt` monotonicamente sem alterar `createdAt`.
+- Tentativas locais e remotas são consolidadas por `attemptId`; conflitos preservam o dado local e geram aviso sanitizado.
+- O round-trip remoto preserva em `metadados` o gabarito visual e normalizado do evaluator, enquanto `tentativas.resposta_correta` permanece sob autoridade do servidor a partir de `public.questoes`; o cliente nunca envia `p_resposta_correta`.
+- Tentativas remotas antigas sem os metadados canônicos exibem o valor bruto de `resposta_correta` e aplicam o `normalizeAnswer` compartilhado.
+- Um bootstrap pós-autenticação, ativo somente quando writes estiverem habilitados, prepara de forma idempotente tentativas e manifests criados anteriormente no modo local.
+- Tentativas legadas sem `clientCreatedAt` permanecem sem timestamp no round-trip remoto e são projetadas antes das tentativas timestampadas, em ordem estável.
+- O aplicativo mostra estado discreto das filas de tentativas e manifests e oferece nova tentativa para as duas sem expor erro técnico.
 - A política pura de revisão usa 4 horas para erro e 1, 3, 7, 14 e 30 dias para acertos seguidos.
-- A migration `20260725_remote_attempts_spaced_repetition.sql` foi criada, mas **não foi executada**.
+- A migration `20260725_remote_attempts_spaced_repetition.sql` foi executada manualmente no projeto correto e as 11 verificações operacionais informadas passaram.
+- A rota autenticada `/progresso` mostra métricas reais, histórico recente, retomada/resultado e desempenho por tipo quando há dados suficientes.
+- O card `Revisão do dia` cria manifests `dueReview` somente com questões vencidas, válidas e deduplicadas.
+- Resultado e retomada usam dados consolidados e podem funcionar em outro dispositivo quando os dados remotos existem.
 - `VITE_ENABLE_SUPABASE_WRITES=false` continua sendo o padrão; nesse estado nenhuma chamada remota de escrita é feita.
 - O CI usa Bun e executa instalação congelada, typecheck, testes, build e lint.
 
@@ -63,19 +74,17 @@ Fluxo desejado:
 - indicador de sincronização;
 - testes sem internet, credenciais ou Supabase real.
 
-### Migration criada, ainda não ativa
+### Migration executada; writes ainda desabilitados
 
-A migration valida primeiro o schema legado confirmado, torna `tentativas.acertou` nullable para representar estados não binários, adiciona `revisoes_questoes`, `sessoes_estudo`, colunas de identidade/sincronização em `tentativas`, índices, RLS, policies e a RPC `registrar_tentativa_estudo`. A FK de usuário de `tentativas` preserva o histórico com `ON DELETE SET NULL`, e retries só são idempotentes quando todo o payload semântico coincide. Ela depende de execução e verificação manual no Supabase conforme `docs/SUPABASE_FASE_3A.md`; o logout preserva tentativas, fila, manifests e progresso locais isolados por usuário.
+A migration validou o schema legado, tornou `tentativas.acertou` nullable para representar estados não binários e adicionou `revisoes_questoes`, `sessoes_estudo`, colunas de identidade/sincronização em `tentativas`, índices, RLS, policies e a RPC `registrar_tentativa_estudo`. A FK de usuário de `tentativas` preserva o histórico com `ON DELETE SET NULL`, e retries só são idempotentes quando todo o payload semântico coincide. A execução e as 11 verificações foram concluídas manualmente; o logout preserva tentativas, as duas filas, manifests e progresso locais isolados por usuário.
 
-### Pendências da Fase 3B
+### Próximos passos
 
-- aplicar e verificar manualmente a migration no ambiente correto;
-- habilitar writes de forma controlada somente depois da verificação;
-- reconciliar manifests entre dispositivos com fila persistente;
-- recuperar tentativas remotas no fluxo local sem bloquear o estudo;
-- definir observabilidade e operação da fila em produção.
+- habilitar writes de forma controlada;
+- validar criação, sincronização, recuperação e resultado em dispositivos reais;
+- definir observabilidade e operação das duas filas em produção.
 
-Ainda não implementado: Realtime, PWA/service worker, página Progresso, card Revisão do dia, gráficos, motor Python e redesign.
+Ainda não implementado: Realtime, PWA/service worker, notificações push, motor Python e redesign.
 
 ## Supabase
 
@@ -98,7 +107,15 @@ Ainda não implementado: Realtime, PWA/service worker, página Progresso, card R
 
 ### tentativas
 
-`id, questao_id, aula_id, tipo, resposta_aluno, resposta_correta, acertou, feedback, tempo_segundos, respondido_em, modo_estudo, dicas_usadas, score, metadados`
+`id, questao_id, aula_id, tipo, resposta_aluno, resposta_correta, acertou, feedback, tempo_segundos, respondido_em, modo_estudo, dicas_usadas, score, metadados, user_id, attempt_id, session_id, result_status, client_created_at, synced_at`
+
+### revisoes_questoes
+
+Estado de revisão por `(user_id, questao_id)`, incluindo sequência, totais, próxima revisão e último `attempt_id`.
+
+### sessoes_estudo
+
+Espelho remoto versionado de `SessionManifest`, com `question_ids` imutáveis, status, índice atual e timestamps.
 
 ### historico_estudo
 
@@ -162,26 +179,16 @@ Preservar regressões:
 - TF após retomada
 - Continuar após retomada
 
-## Problema funcional mais recente
+## Fluxo de cards validado
 
-Na página `/estudar`, os cards apareciam, mas ao clicar/tocar nada acontecia:
+Na página `/estudar`, os cards funcionais criam manifests locais e navegam para `/sessao?m=<id>`. A cobertura inclui:
 
-- Revisão do dia
-- Revisar erros
-- Sessão rápida
-- Aula nova
-- Praticar por aula
-- Praticar por tipo
-
-Auditar:
-
-- onClick / Link / navigate
-- criação do SessionManifest
-- persistência no manifestStore
-- navegação para `/sessao?m=<id>`
-- pointer-events/overlay
-- botão `type="button"`
-- erros silenciosos
+- Revisão do dia;
+- Revisar erros;
+- Sessão rápida;
+- aula;
+- tipo de questão;
+- continuação de sessão recuperável.
 
 ## Migrations citadas
 

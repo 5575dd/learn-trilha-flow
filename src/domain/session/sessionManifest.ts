@@ -8,6 +8,7 @@ export type SessionSource =
   | { kind: "aula"; aulaId: number }
   | { kind: "quick" }
   | { kind: "errors"; fromSessionId?: string }
+  | { kind: "dueReview" }
   | { kind: "questionType"; questionType: SupportedKind };
 
 export interface SessionCriteria {
@@ -57,8 +58,11 @@ export function isSessionManifest(value: unknown): value is SessionManifest {
     (manifest.currentIndex ?? -1) >= 0 &&
     (manifest.currentIndex ?? 0) <= manifest.questionIds.length &&
     typeof manifest.createdAt === "number" &&
+    Number.isFinite(manifest.createdAt) &&
     typeof manifest.updatedAt === "number" &&
-    (manifest.completedAt === undefined || typeof manifest.completedAt === "number")
+    Number.isFinite(manifest.updatedAt) &&
+    (manifest.completedAt === undefined ||
+      (typeof manifest.completedAt === "number" && Number.isFinite(manifest.completedAt)))
   );
 }
 
@@ -91,6 +95,8 @@ function isSessionSource(source: unknown): source is SessionSource {
         (candidate as { fromSessionId?: unknown }).fromSessionId === undefined ||
         typeof (candidate as { fromSessionId?: unknown }).fromSessionId === "string"
       );
+    case "dueReview":
+      return true;
     case "questionType":
       return SUPPORTED_KINDS.includes(
         (candidate as { questionType?: SupportedKind }).questionType as SupportedKind,

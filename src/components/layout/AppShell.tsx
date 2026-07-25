@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, BookOpen, GraduationCap, Settings } from "lucide-react";
+import { Home, BookOpen, GraduationCap, Settings, ChartNoAxesColumnIncreasing } from "lucide-react";
 import { SyncStatusIndicator } from "@/components/sync/SyncStatusIndicator";
 import type { ReactNode } from "react";
 
@@ -33,6 +33,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex max-w-md">
           {item("/", "Início", Home)}
           {item("/estudar", "Estudar", GraduationCap)}
+          {item("/progresso", "Progresso", ChartNoAxesColumnIncreasing)}
           {item("/aulas", "Aulas", BookOpen)}
           {item("/config", "Ajustes", Settings)}
         </div>

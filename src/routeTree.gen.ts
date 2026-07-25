@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ProgressoRouteImport } from './routes/progresso'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as EstudarRouteImport } from './routes/estudar'
 import { Route as ConfigRouteImport } from './routes/config'
@@ -21,6 +22,11 @@ import { Route as AulasIdResultadoRouteImport } from './routes/aulas.$id.resulta
 import { Route as AulasIdPrepararRouteImport } from './routes/aulas.$id.preparar'
 import { Route as AulasIdEstudarRouteImport } from './routes/aulas.$id.estudar'
 
+const ProgressoRoute = ProgressoRouteImport.update({
+  id: '/progresso',
+  path: '/progresso',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/config': typeof ConfigRoute
   '/estudar': typeof EstudarRoute
   '/login': typeof LoginRoute
+  '/progresso': typeof ProgressoRoute
   '/sessao/resultado': typeof SessaoResultadoRoute
   '/aulas/': typeof AulasIndexRoute
   '/sessao/': typeof SessaoIndexRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/config': typeof ConfigRoute
   '/estudar': typeof EstudarRoute
   '/login': typeof LoginRoute
+  '/progresso': typeof ProgressoRoute
   '/sessao/resultado': typeof SessaoResultadoRoute
   '/aulas': typeof AulasIndexRoute
   '/sessao': typeof SessaoIndexRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/config': typeof ConfigRoute
   '/estudar': typeof EstudarRoute
   '/login': typeof LoginRoute
+  '/progresso': typeof ProgressoRoute
   '/sessao/resultado': typeof SessaoResultadoRoute
   '/aulas/': typeof AulasIndexRoute
   '/sessao/': typeof SessaoIndexRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/config'
     | '/estudar'
     | '/login'
+    | '/progresso'
     | '/sessao/resultado'
     | '/aulas/'
     | '/sessao/'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/config'
     | '/estudar'
     | '/login'
+    | '/progresso'
     | '/sessao/resultado'
     | '/aulas'
     | '/sessao'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/config'
     | '/estudar'
     | '/login'
+    | '/progresso'
     | '/sessao/resultado'
     | '/aulas/'
     | '/sessao/'
@@ -164,6 +176,7 @@ export interface RootRouteChildren {
   ConfigRoute: typeof ConfigRoute
   EstudarRoute: typeof EstudarRoute
   LoginRoute: typeof LoginRoute
+  ProgressoRoute: typeof ProgressoRoute
   SessaoResultadoRoute: typeof SessaoResultadoRoute
   AulasIndexRoute: typeof AulasIndexRoute
   SessaoIndexRoute: typeof SessaoIndexRoute
@@ -175,6 +188,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/progresso': {
+      id: '/progresso'
+      path: '/progresso'
+      fullPath: '/progresso'
+      preLoaderRoute: typeof ProgressoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -260,6 +280,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConfigRoute: ConfigRoute,
   EstudarRoute: EstudarRoute,
   LoginRoute: LoginRoute,
+  ProgressoRoute: ProgressoRoute,
   SessaoResultadoRoute: SessaoResultadoRoute,
   AulasIndexRoute: AulasIndexRoute,
   SessaoIndexRoute: SessaoIndexRoute,

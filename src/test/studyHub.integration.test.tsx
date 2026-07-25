@@ -7,6 +7,7 @@ import { LocalManifestStore } from "@/data/manifestStore";
 import type { AulaListItem } from "@/data/queries";
 import type { ValidQuestion } from "@/domain/questions/questionTypes";
 import type { AttemptRecord } from "@/domain/session/sessionReducer";
+import type { ReviewState } from "@/domain/review/reviewProjection";
 
 const aulas: AulaListItem[] = [
   {
@@ -78,6 +79,15 @@ const incorrectAttempt: AttemptRecord = {
     diagnosticCode: "mismatch",
     metadata: {},
   },
+};
+
+const dueReview: ReviewState = {
+  questionId: 2,
+  consecutiveCorrect: 0,
+  totalAttempts: 1,
+  totalCorrect: 0,
+  lastAnsweredAt: 1,
+  nextReviewAt: 2,
 };
 
 function setup() {
@@ -216,5 +226,61 @@ describe("StudyHub cards", () => {
     expect(manifest.source).toEqual({ kind: "questionType", questionType: "TF" });
     expect(manifest.questionIds).toEqual([2, 3]);
     expect(onOpenManifest).toHaveBeenCalledWith(manifest.id);
+  });
+
+  it("shows the Revisão do dia card with the due count", () => {
+    const { store, onOpenManifest } = setup();
+    render(
+      <StudyHub
+        userId="user-a"
+        aulas={aulas}
+        questions={questions}
+        attempts={[]}
+        dueReviewItems={[dueReview]}
+        store={store}
+        onOpenManifest={onOpenManifest}
+      />,
+    );
+    expect(screen.getByText("Revisão do dia")).toBeTruthy();
+    expect(screen.getByText("1 questão vencida")).toBeTruthy();
+  });
+
+  it("shows a clear empty review state without creating a manifest", () => {
+    const { store, onOpenManifest } = setup();
+    render(
+      <StudyHub
+        userId="user-a"
+        aulas={aulas}
+        questions={questions}
+        attempts={[]}
+        dueReviewItems={[]}
+        store={store}
+        onOpenManifest={onOpenManifest}
+      />,
+    );
+    expect(screen.getByText("Nenhuma revisão vencida hoje.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Iniciar revisão do dia" })).toBeNull();
+    expect(store.listByUser("user-a")).toEqual([]);
+  });
+
+  it("creates a dueReview manifest with valid deduplicated question IDs", async () => {
+    const user = userEvent.setup();
+    const { store, onOpenManifest } = setup();
+    render(
+      <StudyHub
+        userId="user-a"
+        aulas={aulas}
+        questions={questions}
+        attempts={[]}
+        dueReviewItems={[dueReview, { ...dueReview }, { ...dueReview, questionId: 999 }]}
+        store={store}
+        onOpenManifest={onOpenManifest}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Iniciar revisão do dia" }));
+    const created = store.listByUser("user-a")[0];
+    expect(created.source).toEqual({ kind: "dueReview" });
+    expect(created.questionIds).toEqual([2]);
+    expect(onOpenManifest).toHaveBeenCalledWith(created.id);
   });
 });
