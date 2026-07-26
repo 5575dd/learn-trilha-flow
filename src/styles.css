@@ -139,7 +139,8 @@
   --sidebar-ring: oklch(0.52 0.2 297);
 
   --gradient-brand: linear-gradient(135deg, var(--primary), var(--accent));
-  --shadow-card-value: 0 1px 2px oklch(0.3 0.05 290 / 6%), 0 8px 24px -16px oklch(0.3 0.05 290 / 22%);
+  --shadow-card-value:
+    0 1px 2px oklch(0.3 0.05 290 / 6%), 0 8px 24px -16px oklch(0.3 0.05 290 / 22%);
   --shadow-float-value: 0 12px 32px -12px oklch(0.35 0.12 297 / 40%);
 }
 
