@@ -15,35 +15,36 @@ export function FeedbackPanel({
     <div
       role="status"
       aria-live="polite"
-      className={`rounded-2xl p-4 ${
+      className={`rounded-3xl border p-4 shadow-card ${
         isCorrect
-          ? "bg-emerald-50 text-emerald-900"
+          ? "border-transparent bg-success-soft text-success-soft-foreground"
           : isInvalid
-            ? "bg-amber-50 text-amber-900"
-            : "bg-rose-50 text-rose-900"
+            ? "border-transparent bg-warning-soft text-warning-soft-foreground"
+            : "border-transparent bg-destructive-soft text-destructive-soft-foreground"
       }`}
     >
-      <p className="text-sm font-semibold">
+      <p className="font-display text-base font-bold">
         {isCorrect ? "Perfeito!" : isInvalid ? "Resposta incompleta" : "Ainda não"}
       </p>
       {!isInvalid && (
         <>
           <p className="mt-2 text-sm">
-            <span className="font-medium">Sua resposta:</span> {result.studentAnswerDisplay || "—"}
+            <span className="font-semibold">Sua resposta:</span>{" "}
+            {result.studentAnswerDisplay || "—"}
           </p>
           {!isCorrect && (
             <p className="mt-1 text-sm">
-              <span className="font-medium">Gabarito:</span> {result.correctAnswerDisplay}
+              <span className="font-semibold">Gabarito:</span> {result.correctAnswerDisplay}
             </p>
           )}
         </>
       )}
-      {result.explanation && <p className="mt-2 text-sm">{result.explanation}</p>}
-      {translation && <p className="mt-1 text-xs opacity-80">{translation}</p>}
+      {result.explanation && <p className="mt-2 text-sm opacity-90">{result.explanation}</p>}
+      {translation && <p className="mt-1 text-xs opacity-75">{translation}</p>}
       <button
         type="button"
         onClick={onContinue}
-        className="mt-4 min-h-12 w-full rounded-2xl bg-slate-900 px-4 text-base font-semibold text-white"
+        className="mt-4 min-h-12 w-full rounded-2xl bg-foreground px-4 text-base font-semibold text-background transition-transform active:scale-[0.99]"
       >
         Continuar
       </button>
