@@ -11,6 +11,7 @@ import {
 import { attemptRepository } from "@/data/repositories/DualAttemptRepository";
 import { manifestStore, type ManifestStore } from "@/data/manifestStore";
 import { evaluateAnswer } from "@/domain/answers/answerEvaluator";
+import { questionKindLabelPtBr } from "@/domain/questions/questionLabels";
 import type { ValidQuestion } from "@/domain/questions/questionTypes";
 import {
   initialSession,
@@ -42,24 +43,6 @@ export interface StudySessionProps {
 }
 
 const defaultRepository = attemptRepository;
-
-const activityLabels: Record<ValidQuestion["kind"], string> = {
-  MC: "Múltipla escolha",
-  READING_MC: "Leitura",
-  LISTENING_MC: "Compreensão auditiva",
-  TF: "Verdadeiro ou falso",
-  FB: "Complete a frase",
-  ORDER: "Organizar frase",
-  DIALOGUE_ORDER: "Organizar diálogo",
-  SHORT_ANSWER: "Resposta curta",
-  DICTATION: "Ditado",
-  CORRECTION: "Corrigir frase",
-  MATCHING: "Relacionar",
-  CLASSIFY: "Classificar",
-  FLASHCARD: "Cartão de memória",
-  OPEN: "Resposta aberta",
-  MICROSCENARIO: "Situação real",
-};
 
 function fallbackSessionId(aulaId: number): string {
   const randomPart =
@@ -389,7 +372,7 @@ export function StudySession({
           </span>
           <span>
             {block ? `Bloco ${block} de 3 • ` : ""}
-            {activityLabels[current.kind]}
+            {questionKindLabelPtBr(current.kind)}
           </span>
         </div>
         <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-200">
@@ -405,6 +388,7 @@ export function StudySession({
       </div>
 
       <Activity
+        key={current.id}
         question={current}
         disabled={showingFeedback}
         onSubmit={(input) => void handleSubmit(input)}

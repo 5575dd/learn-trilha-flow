@@ -54,6 +54,30 @@ const mcQuestion: ValidQuestion = {
   canonicalAnswerText: "Paris",
 };
 
+const firstTextQuestion: ValidQuestion = {
+  id: 20,
+  aulaId: AULA_ID,
+  enunciado: "Who are twins?",
+  explicacao: "",
+  traducao: "",
+  sessao: 1,
+  ordem: 3,
+  kind: "SHORT_ANSWER",
+  canonicalAnswerText: "Nico and Natalia are twins",
+};
+
+const secondTextQuestion: ValidQuestion = {
+  id: 21,
+  aulaId: AULA_ID,
+  enunciado: "What does David love to do?",
+  explicacao: "",
+  traducao: "",
+  sessao: 1,
+  ordem: 4,
+  kind: "SHORT_ANSWER",
+  canonicalAnswerText: "David loves to swim",
+};
+
 const previousAttempt: AttemptRecord = {
   attemptId: `${SESSION_ID}-${firstQuestion.id}`,
   questionId: firstQuestion.id,
@@ -239,5 +263,28 @@ describe("StudySession integration", () => {
     await user.click(screen.getByRole("button", { name: "Verificar" }));
     expect(await screen.findByRole("status")).toHaveTextContent("Perfeito!");
     expect(await repository.load(USER_ID, SESSION_ID)).toHaveLength(2);
+  });
+
+  it("clears a text response when advancing to the next text question", async () => {
+    const user = userEvent.setup();
+    const repository = new InMemoryAttemptRepository();
+    render(
+      <StudySession
+        aulaId={AULA_ID}
+        userId="text-reset-user"
+        questions={[firstTextQuestion, secondTextQuestion]}
+        mode="restart"
+        repository={repository}
+        createSessionId={() => "text-reset-session"}
+      />,
+    );
+
+    const firstField = await screen.findByRole("textbox", { name: "Sua resposta" });
+    await user.type(firstField, "Nico and Natalia are twins");
+    await user.click(screen.getByRole("button", { name: "Verificar" }));
+    await user.click(await screen.findByRole("button", { name: "Continuar" }));
+
+    expect(await screen.findByText(secondTextQuestion.enunciado)).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Sua resposta" })).toHaveValue("");
   });
 });

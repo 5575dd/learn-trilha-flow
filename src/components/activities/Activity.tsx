@@ -10,6 +10,8 @@ import type {
   MatchingQuestion,
   ClassifyQuestion,
 } from "@/domain/questions/questionTypes";
+import { findPronunciationTarget } from "@/domain/questions/pronunciation";
+import { AccessiblePronunciation } from "./AccessiblePronunciation";
 
 export interface ActivityProps {
   question: ValidQuestion;
@@ -416,9 +418,10 @@ function TextView({
       : q.kind === "CORRECTION"
         ? "Corrija a frase abaixo."
         : "Responda com uma frase curta.");
+  const hints = q.hintsPtbr?.length ? q.hintsPtbr : fallbackTextHints(q, stem);
   return (
     <div className="space-y-4">
-      <Stem text={stem} translation={q.traducao} hints={q.hintsPtbr} />
+      <Stem text={stem} translation={q.traducao} hints={hints} />
       {q.kind === "DICTATION" && q.audioText && (
         <ListenButton text={q.audioText} label="🔊 Ouvir ditado" />
       )}
@@ -444,6 +447,39 @@ function TextView({
       />
     </div>
   );
+}
+
+function fallbackTextHints(q: TextInputQuestion, stem: string): string[] {
+  if (q.kind === "DICTATION") {
+    return [
+      "Ouça mais de uma vez e escreva primeiro as palavras que você reconhecer.",
+      "Revise nomes próprios, espaços e o final da frase antes de verificar.",
+    ];
+  }
+  if (q.kind === "CORRECTION") {
+    return [
+      "Identifique primeiro qual parte da frase soa incompleta ou fora de ordem.",
+      "Em perguntas, confira a posição do verbo auxiliar, do sujeito e do verbo principal.",
+    ];
+  }
+
+  const loveMatch = stem.match(/^what does\s+(.+?)\s+love to do\b/i);
+  if (loveMatch?.[1]) {
+    return [
+      `Comece a resposta com: “${loveMatch[1]} loves to…”`,
+      "Complete a frase com a atividade mencionada no conteúdo da aula.",
+    ];
+  }
+
+  const likeMatch = stem.match(/^what does\s+(.+?)\s+like to do\b/i);
+  if (likeMatch?.[1]) {
+    return [
+      `Comece a resposta com: “${likeMatch[1]} likes to…”`,
+      "Complete a frase com a atividade mencionada no conteúdo da aula.",
+    ];
+  }
+
+  return ["Reutilize as palavras principais da pergunta para montar uma frase completa em inglês."];
 }
 
 function MatchingView({
@@ -571,15 +607,31 @@ function SelfEvalView({
   const stem =
     q.enunciado ||
     (q.kind === "FLASHCARD" ? "Flashcard — pense na resposta." : "Reflita e escreva sua resposta.");
+  const hints = q.hintsPtbr?.length
+    ? q.hintsPtbr
+    : q.kind === "OPEN"
+      ? ["Escreva uma frase curta em inglês e depois compare com o modelo sugerido."]
+      : [];
+  const pronunciationTarget = findPronunciationTarget(stem);
   const frontIsDuplicate =
     q.frontText?.trim().toLocaleLowerCase() === q.enunciado.trim().toLocaleLowerCase();
   return (
     <div className="space-y-4">
-      <Stem text={stem} translation={q.traducao} hints={q.hintsPtbr} />
+      <Stem text={stem} translation={q.traducao} hints={hints} />
+      {q.kind === "FLASHCARD" && !revealed && (
+        <p className="rounded-xl bg-muted p-3 text-sm leading-relaxed text-muted-foreground">
+          Pense na resposta antes de revelar. Depois compare com o modelo e escolha{" "}
+          <span className="font-semibold text-foreground">Ainda não sei</span> ou{" "}
+          <span className="font-semibold text-foreground">Já domino</span>.
+        </p>
+      )}
       {q.frontText && !frontIsDuplicate && (
         <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-800">{q.frontText}</p>
       )}
       {q.audioText && <ListenButton text={q.audioText} />}
+      {!q.audioText && pronunciationTarget && (
+        <ListenButton text={pronunciationTarget} label="🔊 Ouvir a palavra" />
+      )}
       {q.kind === "OPEN" && !revealed && (
         <textarea
           aria-label="Sua resposta"
@@ -596,7 +648,7 @@ function SelfEvalView({
       {q.kind === "FLASHCARD" ? (
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           {revealed ? (
-            <p className="text-base text-slate-900">{q.canonicalAnswerText || "—"}</p>
+            <AccessiblePronunciation text={q.canonicalAnswerText} />
           ) : (
             <button
               type="button"

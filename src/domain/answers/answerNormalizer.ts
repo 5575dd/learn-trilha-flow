@@ -35,3 +35,19 @@ export function answersEqual(a: string | null | undefined, b: string | null | un
   if (!na || !nb) return false;
   return na === nb;
 }
+
+export function normalizeAnswerWithoutDiacritics(input: string | null | undefined): string {
+  return normalizeAnswer(input)
+    .normalize("NFD")
+    .replace(/\p{M}+/gu, "");
+}
+
+export function answersEqualIgnoringDiacritics(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
+  const na = normalizeAnswerWithoutDiacritics(a);
+  const nb = normalizeAnswerWithoutDiacritics(b);
+  if (!na || !nb) return false;
+  return na === nb;
+}
