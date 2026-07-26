@@ -26,6 +26,7 @@ export interface StudySessionProps {
   userId: string;
   questions: ValidQuestion[];
   mode: StudyMode;
+  sessionScope?: string;
   repository?: AttemptRepository;
   store?: ManifestStore;
   createSessionId?: () => string;
@@ -42,6 +43,24 @@ export interface StudySessionProps {
 
 const defaultRepository = attemptRepository;
 
+const activityLabels: Record<ValidQuestion["kind"], string> = {
+  MC: "Múltipla escolha",
+  READING_MC: "Leitura",
+  LISTENING_MC: "Compreensão auditiva",
+  TF: "Verdadeiro ou falso",
+  FB: "Complete a frase",
+  ORDER: "Organizar frase",
+  DIALOGUE_ORDER: "Organizar diálogo",
+  SHORT_ANSWER: "Resposta curta",
+  DICTATION: "Ditado",
+  CORRECTION: "Corrigir frase",
+  MATCHING: "Relacionar",
+  CLASSIFY: "Classificar",
+  FLASHCARD: "Cartão de memória",
+  OPEN: "Resposta aberta",
+  MICROSCENARIO: "Situação real",
+};
+
 function fallbackSessionId(aulaId: number): string {
   const randomPart =
     typeof globalThis.crypto?.randomUUID === "function"
@@ -55,6 +74,7 @@ export function StudySession({
   userId,
   questions,
   mode,
+  sessionScope,
   repository = defaultRepository,
   store = manifestStore,
   createSessionId,
@@ -75,7 +95,7 @@ export function StudySession({
     async (requestedMode: StudyMode) => {
       const requestKey = managedSession
         ? `${userId}:${managedSession.id}:${questionSignature}:managed`
-        : `${userId}:${aulaId}:${questionSignature}:${requestedMode}`;
+        : `${userId}:${aulaId}:${sessionScope ?? "default"}:${questionSignature}:${requestedMode}`;
       if (lastRequestRef.current === requestKey) return;
       lastRequestRef.current = requestKey;
       const initialization = ++initializationRef.current;
@@ -94,7 +114,7 @@ export function StudySession({
           });
           return;
         }
-        const snapshot = loadSessionSnapshot({ userId, aulaId, questionIds });
+        const snapshot = loadSessionSnapshot({ userId, aulaId, questionIds, scope: sessionScope });
         const ensureManifest = (sessionId: string, currentIndex = 0) => {
           const existing = store.get(userId, sessionId);
           const manifest =
@@ -134,7 +154,7 @@ export function StudySession({
         if (snapshot && requestedMode === "normal") {
           const manifest = ensureManifest(snapshot.sessionId, snapshot.currentIndex);
           if (manifest.status === "completed") {
-            clearSessionSnapshot(userId, aulaId);
+            clearSessionSnapshot(userId, aulaId, sessionScope);
           } else {
             if (initialization === initializationRef.current) setRecoverableSession(true);
             return;
@@ -146,7 +166,7 @@ export function StudySession({
         if (snapshot && requestedMode === "restart") {
           ensureManifest(snapshot.sessionId, snapshot.currentIndex);
           store.abandon(userId, snapshot.sessionId);
-          clearSessionSnapshot(userId, aulaId);
+          clearSessionSnapshot(userId, aulaId, sessionScope);
         }
 
         const shouldResume = !!snapshot && requestedMode === "resume";
@@ -186,6 +206,7 @@ export function StudySession({
       questionSignature,
       questions,
       repository,
+      sessionScope,
       store,
       userId,
     ],
@@ -206,16 +227,19 @@ export function StudySession({
     }
     if (!state.sessionId) return;
     try {
-      saveSessionSnapshot({
-        schemaVersion: SESSION_SNAPSHOT_SCHEMA_VERSION,
-        userId,
-        aulaId,
-        sessionId: state.sessionId,
-        questionIds: state.questions.map((question) => question.id),
-        currentQuestionId: state.questions[state.index]?.id ?? null,
-        currentIndex: state.index,
-        updatedAt: Date.now(),
-      });
+      saveSessionSnapshot(
+        {
+          schemaVersion: SESSION_SNAPSHOT_SCHEMA_VERSION,
+          userId,
+          aulaId,
+          sessionId: state.sessionId,
+          questionIds: state.questions.map((question) => question.id),
+          currentQuestionId: state.questions[state.index]?.id ?? null,
+          currentIndex: state.index,
+          updatedAt: Date.now(),
+        },
+        sessionScope,
+      );
       store.markActive(userId, state.sessionId);
       store.update(userId, state.sessionId, { currentIndex: state.index });
     } catch {
@@ -229,6 +253,7 @@ export function StudySession({
     aulaId,
     userId,
     managedSession,
+    sessionScope,
     store,
   ]);
 
@@ -259,13 +284,22 @@ export function StudySession({
         return;
       }
       store.markCompleted(userId, state.sessionId);
-      clearSessionSnapshot(userId, aulaId);
+      clearSessionSnapshot(userId, aulaId, sessionScope);
       completedSessionRef.current = state.sessionId;
       onComplete?.(state.sessionId);
     } catch {
       dispatch({ type: "ERROR", message: "Não foi possível finalizar a sessão local." });
     }
-  }, [state.phase, state.sessionId, aulaId, userId, onComplete, managedSession, store]);
+  }, [
+    state.phase,
+    state.sessionId,
+    aulaId,
+    userId,
+    onComplete,
+    managedSession,
+    sessionScope,
+    store,
+  ]);
 
   const selectMode = useCallback(
     (selectedMode: Exclude<StudyMode, "normal">) => {
@@ -341,6 +375,10 @@ export function StudySession({
   };
 
   const progress = ((state.index + (showingFeedback ? 1 : 0)) / state.questions.length) * 100;
+  const block =
+    state.questions.length >= 30
+      ? Math.min(3, Math.floor(state.index / Math.ceil(state.questions.length / 3)) + 1)
+      : null;
 
   return (
     <div className="space-y-4">
@@ -349,7 +387,10 @@ export function StudySession({
           <span>
             {state.index + 1} / {state.questions.length}
           </span>
-          <span>{current.kind}</span>
+          <span>
+            {block ? `Bloco ${block} de 3 • ` : ""}
+            {activityLabels[current.kind]}
+          </span>
         </div>
         <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-200">
           <div
