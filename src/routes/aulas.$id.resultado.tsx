@@ -74,11 +74,9 @@ function Result({ aulaId, sessionId }: { aulaId: number; sessionId: string }) {
 
   const correct = attempts.filter((a) => a.result.status === "correct").length;
   const incorrect = attempts.filter((a) => a.result.status === "incorrect").length;
+  const selfEvaluated = attempts.filter((a) => a.result.status === "neutral").length;
   const ignored = attempts.filter(
-    (a) =>
-      a.result.status === "neutral" ||
-      a.result.status === "skipped" ||
-      a.result.status === "invalid",
+    (a) => a.result.status === "skipped" || a.result.status === "invalid",
   ).length;
   const denom = correct + incorrect;
   const rate = denom === 0 ? 0 : Math.round((correct / denom) * 100);
@@ -94,7 +92,9 @@ function Result({ aulaId, sessionId }: { aulaId: number; sessionId: string }) {
         <p className="text-sm opacity-80">Taxa de acerto</p>
         <p className="text-5xl font-bold">{rate}%</p>
         <p className="mt-1 text-xs opacity-80">
-          {correct} acertos • {incorrect} erros • {ignored} ignoradas
+          {correct} acertos • {incorrect} erros
+          {selfEvaluated > 0 ? ` • ${selfEvaluated} autoavaliações` : ""}
+          {ignored > 0 ? ` • ${ignored} não respondidas` : ""}
         </p>
       </div>
 
