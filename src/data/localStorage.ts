@@ -18,8 +18,10 @@ export const storageKeys = {
   attempts: (userId: string, sessionId: string) =>
     `${PREFIX}.user.${segment(userId)}.attempts.${segment(sessionId)}`,
   attemptsPrefix: (userId: string) => `${PREFIX}.user.${segment(userId)}.attempts.`,
-  snapshot: (userId: string, aulaId: number) =>
-    `${PREFIX}.user.${segment(userId)}.session.${segment(aulaId)}`,
+  snapshot: (userId: string, aulaId: number, scope?: string) =>
+    `${PREFIX}.user.${segment(userId)}.session.${segment(aulaId)}${
+      scope ? `.${segment(scope)}` : ""
+    }`,
   progress: (userId: string, name: string) =>
     `${PREFIX}.user.${segment(userId)}.progress.${segment(name)}`,
   manifests: (userId: string) => `${PREFIX}.user.${segment(userId)}.manifests`,
