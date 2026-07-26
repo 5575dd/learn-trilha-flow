@@ -69,7 +69,8 @@ export function SessionResult({
 
   const correct = attempts.filter((attempt) => attempt.result.status === "correct").length;
   const incorrect = attempts.filter((attempt) => attempt.result.status === "incorrect").length;
-  const ignored = attempts.length - correct - incorrect;
+  const selfEvaluated = attempts.filter((attempt) => attempt.result.status === "neutral").length;
+  const unanswered = attempts.length - correct - incorrect - selfEvaluated;
   const denominator = correct + incorrect;
   const rate = denominator > 0 ? Math.round((correct / denominator) * 100) : null;
   const errorIds = buildErrorQuestionIdsFromIds(attempts, manifest.questionIds);
@@ -99,7 +100,9 @@ export function SessionResult({
         <p className="text-sm opacity-80">Taxa de acerto</p>
         <p className="text-5xl font-bold">{rate === null ? "—" : `${rate}%`}</p>
         <p className="mt-1 text-xs opacity-80">
-          {correct} acertos • {incorrect} erros • {ignored} ignoradas
+          {correct} acertos • {incorrect} erros
+          {selfEvaluated > 0 ? ` • ${selfEvaluated} autoavaliações` : ""}
+          {unanswered > 0 ? ` • ${unanswered} não respondidas` : ""}
         </p>
       </div>
       {pendingSync && (

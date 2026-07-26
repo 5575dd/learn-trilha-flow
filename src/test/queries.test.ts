@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { assertValidId, listQuestoesByIds, orderQuestionsByIds } from "@/data/queries";
+import {
+  assertValidId,
+  isRawQuestionReleased,
+  listQuestoesByIds,
+  orderQuestionsByIds,
+} from "@/data/queries";
 import type { RawQuestion } from "@/domain/questions/questionTypes";
 
 describe("route ID validation", () => {
@@ -41,5 +46,17 @@ describe("question ID queries", () => {
 
   it("rejects invalid question IDs", () => {
     expect(() => orderQuestionsByIds([1, Number.NaN], [])).toThrow(/IDs de questões inválida/);
+  });
+});
+
+describe("question release schedule", () => {
+  it("does not expose a future lesson session in the study hub", () => {
+    const now = Date.parse("2026-07-26T12:00:00.000Z");
+    expect(
+      isRawQuestionReleased({ ...raw(1), proxima_revisao_em: "2026-07-26T12:01:00.000Z" }, now),
+    ).toBe(false);
+    expect(
+      isRawQuestionReleased({ ...raw(1), proxima_revisao_em: "2026-07-26T11:59:00.000Z" }, now),
+    ).toBe(true);
   });
 });

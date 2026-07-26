@@ -123,6 +123,10 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
     traducao,
     sessao: row.sessao,
     ordem: row.ordem,
+    releaseAt: (row.proxima_revisao_em ?? "").trim() || undefined,
+    hintsPtbr: Array.isArray(meta.hints_ptbr)
+      ? meta.hints_ptbr.map((item) => String(item).trim()).filter(Boolean)
+      : [],
   };
 
   if (!kind) return { status: "invalid", id: row.id, tipo: row.tipo, reason: "tipo ausente" };
@@ -131,8 +135,10 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
   }
 
   // Self-eval kinds may have empty canonical (FLASHCARD often only has frontText/back).
-  const selfEvalKinds = ["FLASHCARD", "OPEN", "MICROSCENARIO"] as const;
-  const requiresCanonical = !selfEvalKinds.includes(kind as (typeof selfEvalKinds)[number]);
+  const canonicalOptionalKinds = ["FLASHCARD", "OPEN", "MATCHING", "CLASSIFY"] as const;
+  const requiresCanonical = !canonicalOptionalKinds.includes(
+    kind as (typeof canonicalOptionalKinds)[number],
+  );
   if (requiresCanonical && !canonical) {
     return { status: "invalid", id: row.id, tipo: kind, reason: "resposta_correta ausente" };
   }
@@ -140,7 +146,12 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
   const notes: string[] = [];
   let repaired = false;
 
-  if (kind === "MC" || kind === "READING_MC" || kind === "LISTENING_MC") {
+  if (
+    kind === "MC" ||
+    kind === "READING_MC" ||
+    kind === "LISTENING_MC" ||
+    kind === "MICROSCENARIO"
+  ) {
     const options = parseOptions(row.opcoes, meta);
     if (options.length < 2) {
       return { status: "invalid", id: row.id, tipo: kind, reason: "opções insuficientes" };
@@ -167,7 +178,9 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
       options,
       canonicalAnswerText: answerText,
       supportText:
-        kind === "READING_MC" ? String(meta.support_text ?? "").trim() || undefined : undefined,
+        kind === "READING_MC" || kind === "MICROSCENARIO"
+          ? String(meta.support_text ?? "").trim() || undefined
+          : undefined,
       audioText: kind === "LISTENING_MC" ? (row.audio_texto ?? "").trim() || undefined : undefined,
     };
     return repaired
@@ -272,7 +285,76 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
     return { status: "valid", question: q };
   }
 
-  if (kind === "FLASHCARD" || kind === "OPEN" || kind === "MICROSCENARIO") {
+  if (kind === "MATCHING") {
+    const rawPairs = Array.isArray(meta.pairs) ? meta.pairs : [];
+    const pairs = rawPairs.flatMap((value, index) => {
+      if (!value || typeof value !== "object") return [];
+      const pair = value as Record<string, unknown>;
+      const left = String(pair.left ?? "").trim();
+      const right = String(pair.right ?? "").trim();
+      return left && right ? [{ id: `pair-${index}`, left, right }] : [];
+    });
+    if (pairs.length < 3) {
+      return {
+        status: "invalid",
+        id: row.id,
+        tipo: kind,
+        reason: "pares insuficientes para MATCHING",
+      };
+    }
+    const q: ValidQuestion = {
+      ...base,
+      kind: "MATCHING",
+      pairs,
+      shuffledAnswers: makeShuffle(pairs.map((pair) => pair.right)),
+      canonicalAnswerText: pairs.map((pair) => `${pair.left} → ${pair.right}`).join(" • "),
+    };
+    return { status: "valid", question: q };
+  }
+
+  if (kind === "CLASSIFY") {
+    const rawCategories = Array.isArray(meta.categories) ? meta.categories : [];
+    const categories: string[] = [];
+    const items: Array<{ id: string; text: string; category: string }> = [];
+    rawCategories.forEach((value, categoryIndex) => {
+      if (!value || typeof value !== "object") return;
+      const group = value as Record<string, unknown>;
+      const name = String(group.name ?? "").trim();
+      if (!name || !Array.isArray(group.items)) return;
+      categories.push(name);
+      group.items.forEach((item, itemIndex) => {
+        const text = String(item ?? "").trim();
+        if (text)
+          items.push({ id: `category-${categoryIndex}-${itemIndex}`, text, category: name });
+      });
+    });
+    if (categories.length < 2 || items.length < 3) {
+      return {
+        status: "invalid",
+        id: row.id,
+        tipo: kind,
+        reason: "categorias insuficientes para CLASSIFY",
+      };
+    }
+    const q: ValidQuestion = {
+      ...base,
+      kind: "CLASSIFY",
+      categories,
+      items: makeShuffle(items),
+      canonicalAnswerText: categories
+        .map(
+          (category) =>
+            `${category}: ${items
+              .filter((item) => item.category === category)
+              .map((item) => item.text)
+              .join(", ")}`,
+        )
+        .join(" • "),
+    };
+    return { status: "valid", question: q };
+  }
+
+  if (kind === "FLASHCARD" || kind === "OPEN") {
     const frontText = String(meta.front ?? meta.prompt ?? meta.scenario ?? "").trim() || enunciado;
     const q: ValidQuestion = {
       ...base,

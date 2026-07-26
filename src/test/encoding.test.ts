@@ -36,7 +36,7 @@ describe("UTF-8 source hygiene", () => {
     expect(activity).toContain("🔊 Ouvir");
     expect(activity).toContain("Diálogo montado");
     expect(activity).toContain("Blocos disponíveis");
-    expect(activity).toContain("Como você responderia");
+    expect(activity).toContain("Escolha a resposta mais adequada");
     expect(activity).toContain("Ainda não sei");
     expect(activity).toContain("Flashcard — pense na resposta.");
   });

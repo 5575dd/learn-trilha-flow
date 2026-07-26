@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import type {
   ValidQuestion,
   MCQuestion,
@@ -7,6 +7,8 @@ import type {
   ORDERQuestion,
   TextInputQuestion,
   SelfEvalQuestion,
+  MatchingQuestion,
+  ClassifyQuestion,
 } from "@/domain/questions/questionTypes";
 
 export interface ActivityProps {
@@ -15,6 +17,8 @@ export interface ActivityProps {
   onSubmit: (input: {
     text?: string;
     selectedBlockIds?: string[];
+    matches?: Record<string, string>;
+    classifications?: Record<string, string>;
     selfEval?: "know" | "unknown" | "skip";
   }) => void;
 }
@@ -24,6 +28,7 @@ export function Activity({ question, disabled, onSubmit }: ActivityProps) {
     case "MC":
     case "READING_MC":
     case "LISTENING_MC":
+    case "MICROSCENARIO":
       return <MCView q={question} disabled={disabled} onSubmit={onSubmit} />;
     case "TF":
       return <TFView q={question} disabled={disabled} onSubmit={onSubmit} />;
@@ -36,15 +41,83 @@ export function Activity({ question, disabled, onSubmit }: ActivityProps) {
     case "DICTATION":
     case "CORRECTION":
       return <TextView q={question} disabled={disabled} onSubmit={onSubmit} />;
+    case "MATCHING":
+      return <MatchingView q={question} disabled={disabled} onSubmit={onSubmit} />;
+    case "CLASSIFY":
+      return <ClassifyView q={question} disabled={disabled} onSubmit={onSubmit} />;
     case "FLASHCARD":
     case "OPEN":
-    case "MICROSCENARIO":
       return <SelfEvalView q={question} disabled={disabled} onSubmit={onSubmit} />;
   }
 }
 
-function Stem({ text }: { text: string }) {
-  return <h2 className="text-lg font-semibold leading-snug text-slate-900">{text}</h2>;
+function Stem({
+  text,
+  translation,
+  hints = [],
+}: {
+  text: string;
+  translation?: string;
+  hints?: string[];
+}) {
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [visibleHints, setVisibleHints] = useState(0);
+  const translationId = useId();
+  const hintId = useId();
+  return (
+    <div className="space-y-3">
+      <h2 className="text-lg font-semibold leading-snug text-foreground">{text}</h2>
+      {translation && (
+        <div>
+          <button
+            type="button"
+            aria-expanded={showTranslation}
+            aria-controls={translationId}
+            onClick={() => setShowTranslation((current) => !current)}
+            className="min-h-11 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-primary transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {showTranslation ? "Ocultar tradução" : "Ver tradução"}
+          </button>
+          {showTranslation && (
+            <p
+              id={translationId}
+              className="mt-2 rounded-xl bg-primary-soft p-3 text-sm leading-relaxed text-primary-soft-foreground"
+            >
+              {translation}
+            </p>
+          )}
+        </div>
+      )}
+      {hints.length > 0 && (
+        <div>
+          <button
+            type="button"
+            aria-expanded={visibleHints > 0}
+            aria-controls={hintId}
+            disabled={visibleHints >= hints.length}
+            onClick={() => setVisibleHints((current) => Math.min(hints.length, current + 1))}
+            className="min-h-11 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+          >
+            {visibleHints === 0
+              ? "Preciso de uma dica"
+              : visibleHints < hints.length
+                ? "Mostrar outra dica"
+                : "Todas as dicas exibidas"}
+          </button>
+          {visibleHints > 0 && (
+            <ol
+              id={hintId}
+              className="mt-2 list-decimal space-y-1 rounded-xl bg-warning-soft p-3 pl-8 text-sm text-warning-soft-foreground"
+            >
+              {hints.slice(0, visibleHints).map((hint, index) => (
+                <li key={index}>{hint}</li>
+              ))}
+            </ol>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function speak(text: string) {
@@ -81,9 +154,20 @@ function MCView({
   const [selected, setSelected] = useState<string | null>(null);
   return (
     <div className="space-y-4">
-      <Stem text={q.enunciado || "Escolha a alternativa correta."} />
-      {q.kind === "READING_MC" && q.supportText && (
-        <p className="rounded-xl bg-purple-50 p-3 text-sm text-slate-700">{q.supportText}</p>
+      <Stem
+        text={
+          q.enunciado ||
+          (q.kind === "MICROSCENARIO"
+            ? "Escolha a resposta mais adequada para a situação."
+            : "Escolha a alternativa correta.")
+        }
+        translation={q.traducao}
+        hints={q.hintsPtbr}
+      />
+      {(q.kind === "READING_MC" || q.kind === "MICROSCENARIO") && q.supportText && (
+        <p className="rounded-xl bg-primary-soft p-3 text-sm text-primary-soft-foreground">
+          {q.supportText}
+        </p>
       )}
       {q.kind === "LISTENING_MC" && q.audioText && (
         <ListenButton text={q.audioText} label="🔊 Ouvir novamente" />
@@ -127,7 +211,11 @@ function TFView({
 }) {
   return (
     <div className="space-y-4">
-      <Stem text={q.enunciado || "Verdadeiro ou falso?"} />
+      <Stem
+        text={q.enunciado || "Verdadeiro ou falso?"}
+        translation={q.traducao}
+        hints={q.hintsPtbr}
+      />
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
@@ -162,7 +250,11 @@ function FBView({
   const [value, setValue] = useState("");
   return (
     <div className="space-y-4">
-      <Stem text={q.enunciado || "Complete a lacuna."} />
+      <Stem
+        text={q.enunciado || "Complete a lacuna."}
+        translation={q.traducao}
+        hints={q.hintsPtbr}
+      />
       <input
         aria-label="Sua resposta"
         value={value}
@@ -218,6 +310,8 @@ function OrderView({
             ? "Coloque as falas na ordem correta."
             : "Coloque os blocos na ordem correta.")
         }
+        translation={q.traducao}
+        hints={q.hintsPtbr}
       />
       <div
         className={`min-h-16 rounded-2xl border-2 border-dashed border-purple-200 bg-white p-3 ${
@@ -324,7 +418,7 @@ function TextView({
         : "Responda com uma frase curta.");
   return (
     <div className="space-y-4">
-      <Stem text={stem} />
+      <Stem text={stem} translation={q.traducao} hints={q.hintsPtbr} />
       {q.kind === "DICTATION" && q.audioText && (
         <ListenButton text={q.audioText} label="🔊 Ouvir ditado" />
       )}
@@ -352,6 +446,117 @@ function TextView({
   );
 }
 
+function MatchingView({
+  q,
+  disabled,
+  onSubmit,
+}: {
+  q: MatchingQuestion;
+  disabled: boolean;
+  onSubmit: ActivityProps["onSubmit"];
+}) {
+  const [matches, setMatches] = useState<Record<string, string>>({});
+  const complete = q.pairs.every((pair) => Boolean(matches[pair.id]));
+  return (
+    <div className="space-y-4">
+      <Stem
+        text={q.enunciado || "Relacione cada item à resposta correta."}
+        translation={q.traducao}
+        hints={q.hintsPtbr}
+      />
+      <div className="space-y-3">
+        {q.pairs.map((pair, index) => {
+          const selectId = `matching-${q.id}-${index}`;
+          return (
+            <div key={pair.id} className="rounded-2xl border border-border bg-card p-3">
+              <label
+                htmlFor={selectId}
+                className="mb-2 block text-sm font-semibold text-foreground"
+              >
+                {pair.left}
+              </label>
+              <select
+                id={selectId}
+                value={matches[pair.id] ?? ""}
+                disabled={disabled}
+                onChange={(event) =>
+                  setMatches((current) => ({ ...current, [pair.id]: event.target.value }))
+                }
+                className="min-h-12 w-full rounded-xl border border-border bg-background px-3 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Escolha uma opção</option>
+                {q.shuffledAnswers.map((answer, answerIndex) => (
+                  <option key={`${answer}-${answerIndex}`} value={answer}>
+                    {answer}
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        })}
+      </div>
+      <SubmitBar disabled={disabled || !complete} onClick={() => onSubmit({ matches })} />
+    </div>
+  );
+}
+
+function ClassifyView({
+  q,
+  disabled,
+  onSubmit,
+}: {
+  q: ClassifyQuestion;
+  disabled: boolean;
+  onSubmit: ActivityProps["onSubmit"];
+}) {
+  const [classifications, setClassifications] = useState<Record<string, string>>({});
+  const complete = q.items.every((item) => Boolean(classifications[item.id]));
+  return (
+    <div className="space-y-4">
+      <Stem
+        text={q.enunciado || "Classifique cada item."}
+        translation={q.traducao}
+        hints={q.hintsPtbr}
+      />
+      <div className="space-y-3">
+        {q.items.map((item, index) => {
+          const selectId = `classify-${q.id}-${index}`;
+          return (
+            <div key={item.id} className="rounded-2xl border border-border bg-card p-3">
+              <label
+                htmlFor={selectId}
+                className="mb-2 block text-sm font-semibold text-foreground"
+              >
+                {item.text}
+              </label>
+              <select
+                id={selectId}
+                value={classifications[item.id] ?? ""}
+                disabled={disabled}
+                onChange={(event) =>
+                  setClassifications((current) => ({
+                    ...current,
+                    [item.id]: event.target.value,
+                  }))
+                }
+                className="min-h-12 w-full rounded-xl border border-border bg-background px-3 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Escolha uma categoria</option>
+                {q.categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        })}
+      </div>
+      <SubmitBar disabled={disabled || !complete} onClick={() => onSubmit({ classifications })} />
+    </div>
+  );
+}
+
 function SelfEvalView({
   q,
   disabled,
@@ -362,20 +567,32 @@ function SelfEvalView({
   onSubmit: ActivityProps["onSubmit"];
 }) {
   const [revealed, setRevealed] = useState(false);
+  const [value, setValue] = useState("");
   const stem =
     q.enunciado ||
-    (q.kind === "FLASHCARD"
-      ? "Flashcard — pense na resposta."
-      : q.kind === "MICROSCENARIO"
-        ? "Como você responderia neste cenário?"
-        : "Reflita e escreva sua resposta.");
+    (q.kind === "FLASHCARD" ? "Flashcard — pense na resposta." : "Reflita e escreva sua resposta.");
+  const frontIsDuplicate =
+    q.frontText?.trim().toLocaleLowerCase() === q.enunciado.trim().toLocaleLowerCase();
   return (
     <div className="space-y-4">
-      <Stem text={stem} />
-      {q.frontText && (
+      <Stem text={stem} translation={q.traducao} hints={q.hintsPtbr} />
+      {q.frontText && !frontIsDuplicate && (
         <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-800">{q.frontText}</p>
       )}
       {q.audioText && <ListenButton text={q.audioText} />}
+      {q.kind === "OPEN" && !revealed && (
+        <textarea
+          aria-label="Sua resposta"
+          value={value}
+          disabled={disabled}
+          onChange={(event) => setValue(event.target.value)}
+          rows={4}
+          className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          placeholder="Escreva sua resposta em inglês"
+          autoComplete="off"
+          autoCapitalize="none"
+        />
+      )}
       {q.kind === "FLASHCARD" ? (
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           {revealed ? (
@@ -393,35 +610,42 @@ function SelfEvalView({
         </div>
       ) : (
         <>
-          {!revealed && q.canonicalAnswerText ? (
+          {!revealed ? (
             <button
               type="button"
-              disabled={disabled}
+              disabled={disabled || value.trim().length === 0}
               onClick={() => setRevealed(true)}
               className="min-h-11 w-full rounded-2xl border border-slate-200 bg-white text-sm"
             >
               Ver resposta sugerida
             </button>
-          ) : q.canonicalAnswerText ? (
-            <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">
-              {q.canonicalAnswerText}
-            </p>
-          ) : null}
+          ) : (
+            <>
+              <p className="rounded-xl bg-primary-soft p-3 text-sm text-primary-soft-foreground">
+                <span className="font-semibold">Sua resposta:</span> {value}
+              </p>
+              {q.canonicalAnswerText && (
+                <p className="rounded-xl bg-success-soft p-3 text-sm text-success-soft-foreground">
+                  <span className="font-semibold">Modelo possível:</span> {q.canonicalAnswerText}
+                </p>
+              )}
+            </>
+          )}
         </>
       )}
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
-          disabled={disabled}
-          onClick={() => onSubmit({ selfEval: "unknown" })}
+          disabled={disabled || !revealed}
+          onClick={() => onSubmit({ text: value, selfEval: "unknown" })}
           className="min-h-12 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-800"
         >
           Ainda não sei
         </button>
         <button
           type="button"
-          disabled={disabled}
-          onClick={() => onSubmit({ selfEval: "know" })}
+          disabled={disabled || !revealed}
+          onClick={() => onSubmit({ text: value, selfEval: "know" })}
           className="min-h-12 rounded-2xl bg-emerald-600 text-sm font-semibold text-white"
         >
           Já domino

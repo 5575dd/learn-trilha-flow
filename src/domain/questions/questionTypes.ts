@@ -12,11 +12,13 @@ export type SupportedKind =
   | "SHORT_ANSWER"
   | "DICTATION"
   | "CORRECTION"
+  | "MATCHING"
+  | "CLASSIFY"
   | "FLASHCARD"
   | "OPEN"
   | "MICROSCENARIO";
 
-export type UnsupportedKind = "MATCHING" | "CLASSIFY" | "PRONUNCIATION" | "UNKNOWN";
+export type UnsupportedKind = "PRONUNCIATION" | "UNKNOWN";
 
 export interface RawQuestion {
   id: number;
@@ -32,6 +34,7 @@ export interface RawQuestion {
   ordem: number;
   dificuldade: number;
   metadados: unknown;
+  proxima_revisao_em?: string | null;
 }
 
 export interface BaseQuestion {
@@ -42,10 +45,12 @@ export interface BaseQuestion {
   traducao: string;
   sessao: number;
   ordem: number;
+  releaseAt?: string;
+  hintsPtbr?: string[];
 }
 
 export interface MCQuestion extends BaseQuestion {
-  kind: "MC" | "READING_MC" | "LISTENING_MC";
+  kind: "MC" | "READING_MC" | "LISTENING_MC" | "MICROSCENARIO";
   options: string[];
   canonicalAnswerText: string;
   supportText?: string;
@@ -85,10 +90,36 @@ export interface TextInputQuestion extends BaseQuestion {
 }
 
 export interface SelfEvalQuestion extends BaseQuestion {
-  kind: "FLASHCARD" | "OPEN" | "MICROSCENARIO";
+  kind: "FLASHCARD" | "OPEN";
   canonicalAnswerText: string;
   frontText?: string;
   audioText?: string;
+}
+
+export interface MatchPair {
+  id: string;
+  left: string;
+  right: string;
+}
+
+export interface MatchingQuestion extends BaseQuestion {
+  kind: "MATCHING";
+  pairs: MatchPair[];
+  shuffledAnswers: string[];
+  canonicalAnswerText: string;
+}
+
+export interface ClassificationItem {
+  id: string;
+  text: string;
+  category: string;
+}
+
+export interface ClassifyQuestion extends BaseQuestion {
+  kind: "CLASSIFY";
+  categories: string[];
+  items: ClassificationItem[];
+  canonicalAnswerText: string;
 }
 
 export type ValidQuestion =
@@ -97,7 +128,9 @@ export type ValidQuestion =
   | FBQuestion
   | ORDERQuestion
   | TextInputQuestion
-  | SelfEvalQuestion;
+  | SelfEvalQuestion
+  | MatchingQuestion
+  | ClassifyQuestion;
 
 export type QuestionEntry =
   | { status: "valid"; question: ValidQuestion }
@@ -116,14 +149,11 @@ export const SUPPORTED_KINDS: readonly SupportedKind[] = [
   "SHORT_ANSWER",
   "DICTATION",
   "CORRECTION",
+  "MATCHING",
+  "CLASSIFY",
   "FLASHCARD",
   "OPEN",
   "MICROSCENARIO",
 ] as const;
 
-export const UNSUPPORTED_KINDS: readonly UnsupportedKind[] = [
-  "MATCHING",
-  "CLASSIFY",
-  "PRONUNCIATION",
-  "UNKNOWN",
-] as const;
+export const UNSUPPORTED_KINDS: readonly UnsupportedKind[] = ["PRONUNCIATION", "UNKNOWN"] as const;

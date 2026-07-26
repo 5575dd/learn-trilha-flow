@@ -3,7 +3,7 @@ import { adaptAula, type Aula, type RawAula } from "./adapters/aulaAdapter";
 import type { RawQuestion } from "@/domain/questions/questionTypes";
 
 const QUESTION_COLUMNS =
-  "id, aula_id, tipo, enunciado, opcoes, resposta_correta, explicacao, traducao, audio_texto, sessao, ordem, dificuldade, metadados";
+  "id, aula_id, tipo, enunciado, opcoes, resposta_correta, explicacao, traducao, audio_texto, sessao, ordem, dificuldade, metadados, proxima_revisao_em";
 
 export interface AulaListItem {
   id: number;
@@ -96,7 +96,13 @@ export async function listQuestoesDisponiveis(): Promise<RawQuestion[]> {
     .order("sessao", { ascending: true })
     .order("ordem", { ascending: true });
   if (error) throw error;
-  return (data ?? []) as RawQuestion[];
+  return ((data ?? []) as RawQuestion[]).filter((question) => isRawQuestionReleased(question));
+}
+
+export function isRawQuestionReleased(question: RawQuestion, now = Date.now()): boolean {
+  if (!question.proxima_revisao_em) return true;
+  const release = Date.parse(question.proxima_revisao_em);
+  return !Number.isFinite(release) || release <= now;
 }
 
 export function assertValidId(id: number, label: string): void {
