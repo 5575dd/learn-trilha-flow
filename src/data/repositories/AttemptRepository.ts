@@ -19,6 +19,7 @@ export interface SnapshotExpectation {
   userId: string;
   aulaId: number;
   questionIds: number[];
+  scope?: string;
 }
 
 export interface AttemptRepository {
@@ -164,12 +165,15 @@ function isSnapshot(value: unknown): value is SessionSnapshot {
   );
 }
 
-export function saveSessionSnapshot(snapshot: SessionSnapshot): void {
-  writeLocal(storageKeys.snapshot(snapshot.userId, snapshot.aulaId), JSON.stringify(snapshot));
+export function saveSessionSnapshot(snapshot: SessionSnapshot, scope?: string): void {
+  writeLocal(
+    storageKeys.snapshot(snapshot.userId, snapshot.aulaId, scope),
+    JSON.stringify(snapshot),
+  );
 }
 
 export function loadSessionSnapshot(expected: SnapshotExpectation): SessionSnapshot | null {
-  const key = storageKeys.snapshot(expected.userId, expected.aulaId);
+  const key = storageKeys.snapshot(expected.userId, expected.aulaId, expected.scope);
   const raw = readLocal(key);
   if (!raw) return null;
   try {
@@ -196,6 +200,6 @@ export function loadSessionSnapshot(expected: SnapshotExpectation): SessionSnaps
   }
 }
 
-export function clearSessionSnapshot(userId: string, aulaId: number): void {
-  removeLocal(storageKeys.snapshot(userId, aulaId));
+export function clearSessionSnapshot(userId: string, aulaId: number, scope?: string): void {
+  removeLocal(storageKeys.snapshot(userId, aulaId, scope));
 }
