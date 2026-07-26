@@ -64,6 +64,59 @@ describe("questionParser", () => {
     if (entry.status === "valid") expect(entry.question.kind).toBe("OPEN");
   });
 
+  it("parses MICROSCENARIO as an objective multiple-choice activity", () => {
+    const entry = parseQuestion(
+      raw({
+        tipo: "MICROSCENARIO",
+        enunciado: "Choose the most polite response.",
+        opcoes: "A|B|C|D",
+        resposta_correta: "B",
+        metadados: { support_text: "You are speaking to your teacher." },
+      }),
+    );
+    expect(entry.status).toBe("valid");
+    if (entry.status !== "valid" || entry.question.kind !== "MICROSCENARIO") return;
+    expect(entry.question.options).toEqual(["A", "B", "C", "D"]);
+    expect(entry.question.supportText).toBe("You are speaking to your teacher.");
+  });
+
+  it("parses MATCHING pairs from metadata", () => {
+    const entry = parseQuestion(
+      raw({
+        tipo: "MATCHING",
+        metadados: {
+          pairs: [
+            { left: "mother", right: "mãe" },
+            { left: "father", right: "pai" },
+            { left: "sister", right: "irmã" },
+          ],
+        },
+      }),
+    );
+    expect(entry.status).toBe("valid");
+    if (entry.status !== "valid" || entry.question.kind !== "MATCHING") return;
+    expect(entry.question.pairs).toHaveLength(3);
+    expect(entry.question.canonicalAnswerText).toContain("mother → mãe");
+  });
+
+  it("parses CLASSIFY groups from metadata", () => {
+    const entry = parseQuestion(
+      raw({
+        tipo: "CLASSIFY",
+        metadados: {
+          categories: [
+            { name: "Family", items: ["mother", "father"] },
+            { name: "Jobs", items: ["doctor", "teacher"] },
+          ],
+        },
+      }),
+    );
+    expect(entry.status).toBe("valid");
+    if (entry.status !== "valid" || entry.question.kind !== "CLASSIFY") return;
+    expect(entry.question.categories).toEqual(["Family", "Jobs"]);
+    expect(entry.question.items).toHaveLength(4);
+  });
+
   it("PRONUNCIATION never becomes a valid question", () => {
     const entry = parseQuestion(raw({ tipo: "PRONUNCIATION", resposta_correta: "x" }));
     expect(entry.status).toBe("unsupported");
