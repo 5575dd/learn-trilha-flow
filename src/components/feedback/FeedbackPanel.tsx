@@ -1,4 +1,5 @@
 import type { EvaluationResult } from "@/domain/answers/evaluationTypes";
+import { AccessiblePronunciation } from "@/components/activities/AccessiblePronunciation";
 
 export function FeedbackPanel({
   result,
@@ -13,15 +14,18 @@ export function FeedbackPanel({
   const isInvalid = result.status === "invalid";
   const isSelfEvaluation = result.status === "neutral" || result.status === "skipped";
   const remembered = result.diagnosticCode === "selfeval.know";
-  const title = isCorrect
-    ? "Perfeito!"
-    : isInvalid
-      ? "Resposta incompleta"
-      : isSelfEvaluation
-        ? remembered
-          ? "Ótimo, registrado!"
-          : "Tudo bem, vamos revisar"
-        : "Ainda não";
+  const acceptedWithSpellingWarning = result.diagnosticCode === "match.diacritic_variant";
+  const title = acceptedWithSpellingWarning
+    ? "Correto, com atenção"
+    : isCorrect
+      ? "Perfeito!"
+      : isInvalid
+        ? "Resposta incompleta"
+        : isSelfEvaluation
+          ? remembered
+            ? "Ótimo, registrado!"
+            : "Tudo bem, vamos revisar"
+          : "Ainda não";
   return (
     <div
       role="status"
@@ -45,6 +49,14 @@ export function FeedbackPanel({
             ? "Você marcou este conteúdo como dominado."
             : "Este conteúdo ficará sinalizado como ponto de revisão."}
         </p>
+      ) : acceptedWithSpellingWarning ? (
+        <div className="mt-2 space-y-1 text-sm">
+          <p>Sua resposta foi aceita porque a diferença foi apenas de acentuação.</p>
+          <p>
+            <span className="font-semibold">Forma usada na aula:</span>{" "}
+            {result.correctAnswerDisplay}
+          </p>
+        </div>
       ) : (
         !isInvalid && (
           <>
@@ -60,7 +72,14 @@ export function FeedbackPanel({
           </>
         )
       )}
-      {result.explanation && <p className="mt-2 text-sm opacity-90">{result.explanation}</p>}
+      {result.explanation &&
+        (/[\u0250-\u02af\u02c8\u02cc]/u.test(result.explanation) ? (
+          <div className="mt-2">
+            <AccessiblePronunciation text={result.explanation} />
+          </div>
+        ) : (
+          <p className="mt-2 text-sm opacity-90">{result.explanation}</p>
+        ))}
       {translation && <p className="mt-1 text-xs opacity-75">{translation}</p>}
       <button
         type="button"

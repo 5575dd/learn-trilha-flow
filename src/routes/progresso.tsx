@@ -13,6 +13,7 @@ import {
   sessionSourceLabel,
   type ProgressMetrics,
 } from "@/domain/progress/progressSummary";
+import { questionKindLabelPtBr } from "@/domain/questions/questionLabels";
 import type { ValidQuestion } from "@/domain/questions/questionTypes";
 import { validateAndRepair } from "@/domain/questions/questionValidator";
 
@@ -210,7 +211,12 @@ function ProgressPage() {
                 return (
                   <article key={item.kind} className="rounded-2xl bg-white p-4 shadow-sm">
                     <div className="flex justify-between text-sm">
-                      <span className="font-medium text-slate-800">{item.kind}</span>
+                      <span className="font-medium text-slate-800">
+                        {item.kind}{" "}
+                        <span className="font-normal text-slate-500">
+                          — {questionKindLabelPtBr(item.kind)}
+                        </span>
+                      </span>
                       <span className="text-slate-600">
                         {percent === null ? "Dados insuficientes" : `${percent}%`}
                       </span>

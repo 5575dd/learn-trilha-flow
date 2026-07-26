@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { evaluateAnswer } from "@/domain/answers/answerEvaluator";
-import type { ClassifyQuestion, MatchingQuestion } from "@/domain/questions/questionTypes";
+import type {
+  ClassifyQuestion,
+  MatchingQuestion,
+  TextInputQuestion,
+} from "@/domain/questions/questionTypes";
 
 const base = {
   id: 1,
@@ -55,5 +59,19 @@ describe("structured activity evaluator", () => {
         classifications: { a: "Jobs", b: "Jobs", c: "Family" },
       }).status,
     ).toBe("incorrect");
+  });
+
+  it("accepts an answer that differs only by accents and records a spelling reminder", () => {
+    const question: TextInputQuestion = {
+      ...base,
+      kind: "DICTATION",
+      canonicalAnswerText: "Nico and Natalia are twins",
+      audioText: "Nico and Natalia are twins",
+    };
+    const result = evaluateAnswer(question, {
+      text: "Nico and Natália are twins",
+    });
+    expect(result.status).toBe("correct");
+    expect(result.diagnosticCode).toBe("match.diacritic_variant");
   });
 });

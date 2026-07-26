@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { normalizeAnswer, answersEqual } from "@/domain/answers/answerNormalizer";
+import {
+  answersEqual,
+  answersEqualIgnoringDiacritics,
+  normalizeAnswer,
+} from "@/domain/answers/answerNormalizer";
 
 describe("normalizeAnswer", () => {
   it("Where equals Where", () => {
@@ -34,5 +38,11 @@ describe("normalizeAnswer", () => {
   it("empty answers are never equal", () => {
     expect(answersEqual("", "Where")).toBe(false);
     expect(answersEqual("Where", "")).toBe(false);
+  });
+  it("can identify a difference caused only by accents", () => {
+    expect(answersEqual("Nico and Natália are twins", "Nico and Natalia are twins")).toBe(false);
+    expect(
+      answersEqualIgnoringDiacritics("Nico and Natália are twins", "Nico and Natalia are twins"),
+    ).toBe(true);
   });
 });

@@ -1,6 +1,6 @@
 import type { ValidQuestion } from "../questions/questionTypes";
 import type { EvaluationResult } from "./evaluationTypes";
-import { normalizeAnswer } from "./answerNormalizer";
+import { answersEqualIgnoringDiacritics, normalizeAnswer } from "./answerNormalizer";
 
 export interface StudentInput {
   text?: string;
@@ -89,6 +89,14 @@ export function evaluateAnswer(q: ValidQuestion, input: StudentInput): Evaluatio
   const text = (input.text ?? "").trim();
   if (!text) return base(q, "", "invalid", "empty");
 
-  const ok = normalizeAnswer(text) === normalizeAnswer(q.canonicalAnswerText);
-  return base(q, text, ok ? "correct" : "incorrect", ok ? "match" : "mismatch");
+  const exactMatch = normalizeAnswer(text) === normalizeAnswer(q.canonicalAnswerText);
+  if (exactMatch) return base(q, text, "correct", "match");
+
+  const diacriticVariant = answersEqualIgnoringDiacritics(text, q.canonicalAnswerText);
+  return base(
+    q,
+    text,
+    diacriticVariant ? "correct" : "incorrect",
+    diacriticVariant ? "match.diacritic_variant" : "mismatch",
+  );
 }
