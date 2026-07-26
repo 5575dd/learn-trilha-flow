@@ -72,14 +72,26 @@ export function SyncStatusIndicator() {
     manifestPersistenceFailure,
   });
 
+  const dotTone =
+    state === "failed"
+      ? "bg-destructive"
+      : state === "synced"
+        ? "bg-success"
+        : state === "local"
+          ? "bg-muted-foreground"
+          : "bg-warning";
+
   return (
     <div
       role="status"
-      className="mb-3 flex min-h-9 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700"
+      className="mb-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-xs shadow-card"
     >
-      <div>
-        <span>{SYNC_DISPLAY_LABELS[state]}</span>
-        <p className="mt-0.5 text-[11px] text-slate-500">
+      <div className="min-w-0">
+        <span className="flex min-w-0 items-center gap-2 font-medium">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${dotTone}`} aria-hidden />
+          <span className="truncate">{SYNC_DISPLAY_LABELS[state]}</span>
+        </span>
+        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
           Tentativas: {queueLabel(items, persistenceFailure)} · Sessões:{" "}
           {queueLabel(manifestItems, manifestPersistenceFailure)}
         </p>
@@ -87,7 +99,7 @@ export function SyncStatusIndicator() {
       {state === "failed" && userId && (
         <button
           type="button"
-          className="font-semibold text-purple-700"
+          className="inline-flex min-h-11 shrink-0 items-center rounded-xl px-2 font-semibold text-primary"
           onClick={() => void retryBoth(userId)}
         >
           Tentar novamente

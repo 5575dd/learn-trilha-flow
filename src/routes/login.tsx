@@ -4,6 +4,21 @@ import { useAuth } from "@/auth/AuthContext";
 
 export const Route = createFileRoute("/login")({
   ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Entrar na Trilha — English Review" },
+      {
+        name: "description",
+        content:
+          "Acesse sua conta Trilha para revisar aulas de inglês, praticar atividades e acompanhar seu progresso.",
+      },
+      { property: "og:title", content: "Entrar na Trilha — English Review" },
+      {
+        property: "og:description",
+        content: "Acesse sua conta Trilha para revisar aulas de inglês e acompanhar seu progresso.",
+      },
+    ],
+  }),
   component: LoginPage,
 });
 
@@ -30,21 +45,28 @@ function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white px-4 py-8">
-      <div className="mx-auto max-w-md">
-        <header className="mb-8 pt-8 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-600 text-2xl font-bold text-white">
+    <div className="relative flex min-h-dvh flex-col justify-center bg-background px-4 py-10">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-brand opacity-[0.12]"
+      />
+      <main className="relative mx-auto w-full max-w-md">
+        <header className="mb-8 text-center">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-gradient-brand font-display text-2xl font-bold text-primary-foreground shadow-float">
             T
           </div>
-          <h1 className="mt-4 text-3xl font-bold text-slate-900">Trilha</h1>
-          <p className="text-sm text-slate-500">English Review</p>
-          <p className="mt-3 text-xs text-slate-500">
+          <h1 className="mt-4 font-display text-3xl font-bold">Trilha</h1>
+          <p className="text-sm font-medium text-muted-foreground">English Review</p>
+          <p className="mx-auto mt-3 max-w-xs text-sm text-muted-foreground text-balance-tight">
             Transforme cada aula em uma trilha de revisão prática, visual e inteligente.
           </p>
         </header>
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl bg-white p-6 shadow-sm">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 rounded-3xl border border-border bg-card p-6 shadow-card"
+        >
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="email">
+            <label className="mb-1.5 block text-sm font-medium" htmlFor="email">
               E-mail
             </label>
             <input
@@ -54,11 +76,11 @@ function LoginPage() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="min-h-12 w-full rounded-2xl border border-slate-300 bg-white px-4 outline-none focus:border-purple-500"
+              className="min-h-12 w-full rounded-2xl border border-input bg-background px-4 text-base outline-none transition-colors placeholder:text-muted-foreground focus:border-ring"
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="password">
+            <label className="mb-1.5 block text-sm font-medium" htmlFor="password">
               Senha
             </label>
             <input
@@ -68,23 +90,26 @@ function LoginPage() {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="min-h-12 w-full rounded-2xl border border-slate-300 bg-white px-4 outline-none focus:border-purple-500"
+              className="min-h-12 w-full rounded-2xl border border-input bg-background px-4 text-base outline-none transition-colors placeholder:text-muted-foreground focus:border-ring"
             />
           </div>
           {error && (
-            <p role="alert" className="text-sm text-rose-600">
+            <p
+              role="alert"
+              className="rounded-xl bg-destructive-soft p-3 text-sm font-medium text-destructive-soft-foreground"
+            >
               {error}
             </p>
           )}
           <button
             type="submit"
             disabled={submitting}
-            className="min-h-12 w-full rounded-2xl bg-purple-600 text-base font-semibold text-white disabled:opacity-60"
+            className="min-h-12 w-full rounded-2xl bg-primary text-base font-semibold text-primary-foreground shadow-float transition-transform active:scale-[0.99] disabled:opacity-60"
           >
             {submitting ? "Entrando…" : "Entrar"}
           </button>
         </form>
-      </div>
+      </main>
     </div>
   );
 }
