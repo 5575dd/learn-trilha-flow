@@ -9,32 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ProgressoRouteImport } from './routes/progresso'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as EstudarRouteImport } from './routes/estudar'
-import { Route as ConfigRouteImport } from './routes/config'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SessaoIndexRouteImport } from './routes/sessao.index'
+import { Route as ConfigRouteImport } from './routes/config'
+import { Route as EstudarRouteImport } from './routes/estudar'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ProgressoRouteImport } from './routes/progresso'
 import { Route as AulasIndexRouteImport } from './routes/aulas.index'
+import { Route as SessaoIndexRouteImport } from './routes/sessao.index'
 import { Route as SessaoResultadoRouteImport } from './routes/sessao.resultado'
 import { Route as AulasIdIndexRouteImport } from './routes/aulas.$id.index'
-import { Route as AulasIdResultadoRouteImport } from './routes/aulas.$id.resultado'
-import { Route as AulasIdPrepararRouteImport } from './routes/aulas.$id.preparar'
 import { Route as AulasIdEstudarRouteImport } from './routes/aulas.$id.estudar'
+import { Route as AulasIdPrepararRouteImport } from './routes/aulas.$id.preparar'
+import { Route as AulasIdResultadoRouteImport } from './routes/aulas.$id.resultado'
 
-const ProgressoRoute = ProgressoRouteImport.update({
-  id: '/progresso',
-  path: '/progresso',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EstudarRoute = EstudarRouteImport.update({
-  id: '/estudar',
-  path: '/estudar',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfigRoute = ConfigRouteImport.update({
@@ -42,19 +32,29 @@ const ConfigRoute = ConfigRouteImport.update({
   path: '/config',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const EstudarRoute = EstudarRouteImport.update({
+  id: '/estudar',
+  path: '/estudar',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SessaoIndexRoute = SessaoIndexRouteImport.update({
-  id: '/sessao/',
-  path: '/sessao/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProgressoRoute = ProgressoRouteImport.update({
+  id: '/progresso',
+  path: '/progresso',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AulasIndexRoute = AulasIndexRouteImport.update({
   id: '/aulas/',
   path: '/aulas/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SessaoIndexRoute = SessaoIndexRouteImport.update({
+  id: '/sessao/',
+  path: '/sessao/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SessaoResultadoRoute = SessaoResultadoRouteImport.update({
@@ -67,9 +67,9 @@ const AulasIdIndexRoute = AulasIdIndexRouteImport.update({
   path: '/aulas/$id/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AulasIdResultadoRoute = AulasIdResultadoRouteImport.update({
-  id: '/aulas/$id/resultado',
-  path: '/aulas/$id/resultado',
+const AulasIdEstudarRoute = AulasIdEstudarRouteImport.update({
+  id: '/aulas/$id/estudar',
+  path: '/aulas/$id/estudar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AulasIdPrepararRoute = AulasIdPrepararRouteImport.update({
@@ -77,9 +77,9 @@ const AulasIdPrepararRoute = AulasIdPrepararRouteImport.update({
   path: '/aulas/$id/preparar',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AulasIdEstudarRoute = AulasIdEstudarRouteImport.update({
-  id: '/aulas/$id/estudar',
-  path: '/aulas/$id/estudar',
+const AulasIdResultadoRoute = AulasIdResultadoRouteImport.update({
+  id: '/aulas/$id/resultado',
+  path: '/aulas/$id/resultado',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -188,25 +188,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/progresso': {
-      id: '/progresso'
-      path: '/progresso'
-      fullPath: '/progresso'
-      preLoaderRoute: typeof ProgressoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estudar': {
-      id: '/estudar'
-      path: '/estudar'
-      fullPath: '/estudar'
-      preLoaderRoute: typeof EstudarRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/config': {
@@ -216,18 +202,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfigRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/estudar': {
+      id: '/estudar'
+      path: '/estudar'
+      fullPath: '/estudar'
+      preLoaderRoute: typeof EstudarRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sessao/': {
-      id: '/sessao/'
-      path: '/sessao'
-      fullPath: '/sessao/'
-      preLoaderRoute: typeof SessaoIndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/progresso': {
+      id: '/progresso'
+      path: '/progresso'
+      fullPath: '/progresso'
+      preLoaderRoute: typeof ProgressoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/aulas/': {
@@ -235,6 +228,13 @@ declare module '@tanstack/react-router' {
       path: '/aulas'
       fullPath: '/aulas/'
       preLoaderRoute: typeof AulasIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sessao/': {
+      id: '/sessao/'
+      path: '/sessao'
+      fullPath: '/sessao/'
+      preLoaderRoute: typeof SessaoIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sessao/resultado': {
@@ -251,11 +251,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AulasIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/aulas/$id/resultado': {
-      id: '/aulas/$id/resultado'
-      path: '/aulas/$id/resultado'
-      fullPath: '/aulas/$id/resultado'
-      preLoaderRoute: typeof AulasIdResultadoRouteImport
+    '/aulas/$id/estudar': {
+      id: '/aulas/$id/estudar'
+      path: '/aulas/$id/estudar'
+      fullPath: '/aulas/$id/estudar'
+      preLoaderRoute: typeof AulasIdEstudarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/aulas/$id/preparar': {
@@ -265,11 +265,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AulasIdPrepararRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/aulas/$id/estudar': {
-      id: '/aulas/$id/estudar'
-      path: '/aulas/$id/estudar'
-      fullPath: '/aulas/$id/estudar'
-      preLoaderRoute: typeof AulasIdEstudarRouteImport
+    '/aulas/$id/resultado': {
+      id: '/aulas/$id/resultado'
+      path: '/aulas/$id/resultado'
+      fullPath: '/aulas/$id/resultado'
+      preLoaderRoute: typeof AulasIdResultadoRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -292,3 +292,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
