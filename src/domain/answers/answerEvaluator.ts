@@ -5,7 +5,9 @@ import { normalizeAnswer } from "./answerNormalizer";
 export interface StudentInput {
   text?: string;
   selectedBlockIds?: string[];
-  // For self-eval kinds (FLASHCARD/OPEN/MICROSCENARIO): student marks themselves.
+  matches?: Record<string, string>;
+  classifications?: Record<string, string>;
+  // For self-eval kinds (FLASHCARD/OPEN): student marks themselves.
   selfEval?: "know" | "unknown" | "skip";
 }
 
@@ -47,7 +49,37 @@ export function evaluateAnswer(q: ValidQuestion, input: StudentInput): Evaluatio
     return base(q, sentence, ok ? "correct" : "incorrect", ok ? "order.match" : "order.mismatch");
   }
 
-  if (q.kind === "FLASHCARD" || q.kind === "OPEN" || q.kind === "MICROSCENARIO") {
+  if (q.kind === "MATCHING") {
+    const matches = input.matches ?? {};
+    if (q.pairs.some((pair) => !matches[pair.id])) {
+      return base(q, "", "invalid", "matching.incomplete");
+    }
+    const student = q.pairs.map((pair) => `${pair.left} → ${matches[pair.id]}`).join(" • ");
+    const ok = q.pairs.every((pair) => matches[pair.id] === pair.right);
+    return base(
+      q,
+      student,
+      ok ? "correct" : "incorrect",
+      ok ? "matching.match" : "matching.mismatch",
+    );
+  }
+
+  if (q.kind === "CLASSIFY") {
+    const classifications = input.classifications ?? {};
+    if (q.items.some((item) => !classifications[item.id])) {
+      return base(q, "", "invalid", "classify.incomplete");
+    }
+    const student = q.items.map((item) => `${item.text} → ${classifications[item.id]}`).join(" • ");
+    const ok = q.items.every((item) => classifications[item.id] === item.category);
+    return base(
+      q,
+      student,
+      ok ? "correct" : "incorrect",
+      ok ? "classify.match" : "classify.mismatch",
+    );
+  }
+
+  if (q.kind === "FLASHCARD" || q.kind === "OPEN") {
     // Self-assessment. Never auto-correct. Always neutral for progress.
     const mark = input.selfEval;
     if (!mark) return base(q, input.text ?? "", "invalid", "selfeval.missing");
