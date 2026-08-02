@@ -77,7 +77,7 @@ describe("accessible activity help", () => {
     expect(screen.getByRole("status")).not.toHaveTextContent("Ainda não");
   });
 
-  it("shows an accessible pronunciation and keeps IPA optional", async () => {
+  it("shows pronunciation with familiar letters and does not render IPA symbols", async () => {
     const user = userEvent.setup();
     const question: ValidQuestion = {
       ...base,
@@ -92,7 +92,8 @@ describe("accessible activity help", () => {
     await user.click(screen.getByRole("button", { name: "Mostrar resposta" }));
     const accessiblePronunciation = screen.getByText(/Como soa para brasileiros/).closest("p");
     expect(accessiblePronunciation).toHaveTextContent("dâz");
-    expect(screen.getByText("Ver explicação técnica da pronúncia")).toBeVisible();
+    expect(screen.getByText("Entender a pronúncia")).toBeVisible();
+    expect(screen.queryByText(/\/dʌz\//)).not.toBeInTheDocument();
   });
 
   it("offers a useful fallback hint when a short answer has no generated hints", async () => {

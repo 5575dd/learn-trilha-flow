@@ -1,4 +1,5 @@
 const IPA_EXPRESSION = /\/([^/\n]*[\u0250-\u02af\u02c8\u02cc][^/\n]*)\//i;
+const IPA_EXPRESSION_GLOBAL = /\/([^/\n]*[\u0250-\u02af\u02c8\u02cc][^/\n]*)\//gi;
 
 const IPA_SEQUENCES: Array<[RegExp, string]> = [
   [/tʃ/g, "tch"],
@@ -57,6 +58,13 @@ export function ipaToPortugueseApproximation(ipa: string): string {
     .replace(/[^a-záàâãéêíóôõúçthdjnrwu-]/gi, "")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+export function replaceIpaWithPortugueseApproximation(text: string): string {
+  return text.replace(IPA_EXPRESSION_GLOBAL, (_expression, ipa: string) => {
+    const approximation = ipaToPortugueseApproximation(ipa);
+    return approximation ? `“${approximation}”` : "pronúncia disponível em áudio";
+  });
 }
 
 export function findWrittenPronunciationApproximation(text: string): string | null {
