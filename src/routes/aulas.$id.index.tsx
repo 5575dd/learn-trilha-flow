@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { getAula, listQuestoesByAula } from "@/data/queries";
 import type { ValidQuestion } from "@/domain/questions/questionTypes";
 import { validateAndRepair } from "@/domain/questions/questionValidator";
+import { replaceIpaWithPortugueseApproximation } from "@/domain/questions/pronunciation";
 import { formatReleaseDate, groupLessonSessions } from "@/domain/session/lessonSessions";
 
 export const Route = createFileRoute("/aulas/$id/")({
@@ -225,9 +226,15 @@ function AulaDetail({ id }: { id: number }) {
             <li key={index} className="rounded-xl bg-muted p-3">
               <p className="font-semibold">
                 {item.term}
-                {item.phonetic ? ` — ${item.phonetic}` : ""}
+                {item.phonetic
+                  ? ` — como soa: ${replaceIpaWithPortugueseApproximation(item.phonetic)}`
+                  : ""}
               </p>
-              {item.tip && <p className="mt-1 text-muted-foreground">{item.tip}</p>}
+              {item.tip && (
+                <p className="mt-1 text-muted-foreground">
+                  {replaceIpaWithPortugueseApproximation(item.tip)}
+                </p>
+              )}
             </li>
           ))}
         </ul>,
