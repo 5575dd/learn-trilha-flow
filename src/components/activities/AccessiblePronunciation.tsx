@@ -2,6 +2,7 @@ import {
   findIpaExpression,
   findWrittenPronunciationApproximation,
   ipaToPortugueseApproximation,
+  replaceIpaWithPortugueseApproximation,
 } from "@/domain/questions/pronunciation";
 
 export function AccessiblePronunciation({ text }: { text: string }) {
@@ -21,11 +22,13 @@ export function AccessiblePronunciation({ text }: { text: string }) {
       </p>
       <details className="rounded-xl border border-border bg-background p-3 text-sm text-muted-foreground">
         <summary className="cursor-pointer font-semibold text-foreground">
-          Ver explicação técnica da pronúncia
+          Entender a pronúncia
         </summary>
-        <p className="mt-2 font-sans leading-relaxed">{text}</p>
+        <p className="mt-2 font-sans leading-relaxed">
+          {replaceIpaWithPortugueseApproximation(text)}
+        </p>
         <p className="mt-2 text-xs">
-          Os símbolos entre barras pertencem ao Alfabeto Fonético Internacional (IPA).
+          A escrita acima aproxima o som usando letras mais familiares em português.
         </p>
       </details>
     </div>
