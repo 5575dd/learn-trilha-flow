@@ -9,32 +9,31 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as ConfigRouteImport } from './routes/config'
-import { Route as EstudarRouteImport } from './routes/estudar'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as ProgressoRouteImport } from './routes/progresso'
-import { Route as AulasIndexRouteImport } from './routes/aulas.index'
+import { Route as MusicasRouteImport } from './routes/musicas'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as EstudarRouteImport } from './routes/estudar'
+import { Route as ConfigRouteImport } from './routes/config'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as SessaoIndexRouteImport } from './routes/sessao.index'
+import { Route as AulasIndexRouteImport } from './routes/aulas.index'
 import { Route as SessaoResultadoRouteImport } from './routes/sessao.resultado'
+import { Route as ApiTranslateRouteImport } from './routes/api.translate'
+import { Route as ApiLyricsRouteImport } from './routes/api.lyrics'
 import { Route as AulasIdIndexRouteImport } from './routes/aulas.$id.index'
-import { Route as AulasIdEstudarRouteImport } from './routes/aulas.$id.estudar'
-import { Route as AulasIdPrepararRouteImport } from './routes/aulas.$id.preparar'
 import { Route as AulasIdResultadoRouteImport } from './routes/aulas.$id.resultado'
+import { Route as AulasIdPrepararRouteImport } from './routes/aulas.$id.preparar'
+import { Route as AulasIdEstudarRouteImport } from './routes/aulas.$id.estudar'
+import { Route as ApiSpotifyPkceRouteImport } from './routes/api.spotify.pkce'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const ProgressoRoute = ProgressoRouteImport.update({
+  id: '/progresso',
+  path: '/progresso',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ConfigRoute = ConfigRouteImport.update({
-  id: '/config',
-  path: '/config',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EstudarRoute = EstudarRouteImport.update({
-  id: '/estudar',
-  path: '/estudar',
+const MusicasRoute = MusicasRouteImport.update({
+  id: '/musicas',
+  path: '/musicas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -42,14 +41,19 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProgressoRoute = ProgressoRouteImport.update({
-  id: '/progresso',
-  path: '/progresso',
+const EstudarRoute = EstudarRouteImport.update({
+  id: '/estudar',
+  path: '/estudar',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AulasIndexRoute = AulasIndexRouteImport.update({
-  id: '/aulas/',
-  path: '/aulas/',
+const ConfigRoute = ConfigRouteImport.update({
+  id: '/config',
+  path: '/config',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SessaoIndexRoute = SessaoIndexRouteImport.update({
@@ -57,9 +61,24 @@ const SessaoIndexRoute = SessaoIndexRouteImport.update({
   path: '/sessao/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AulasIndexRoute = AulasIndexRouteImport.update({
+  id: '/aulas/',
+  path: '/aulas/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SessaoResultadoRoute = SessaoResultadoRouteImport.update({
   id: '/sessao/resultado',
   path: '/sessao/resultado',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTranslateRoute = ApiTranslateRouteImport.update({
+  id: '/api/translate',
+  path: '/api/translate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLyricsRoute = ApiLyricsRouteImport.update({
+  id: '/api/lyrics',
+  path: '/api/lyrics',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AulasIdIndexRoute = AulasIdIndexRouteImport.update({
@@ -67,9 +86,9 @@ const AulasIdIndexRoute = AulasIdIndexRouteImport.update({
   path: '/aulas/$id/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AulasIdEstudarRoute = AulasIdEstudarRouteImport.update({
-  id: '/aulas/$id/estudar',
-  path: '/aulas/$id/estudar',
+const AulasIdResultadoRoute = AulasIdResultadoRouteImport.update({
+  id: '/aulas/$id/resultado',
+  path: '/aulas/$id/resultado',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AulasIdPrepararRoute = AulasIdPrepararRouteImport.update({
@@ -77,9 +96,14 @@ const AulasIdPrepararRoute = AulasIdPrepararRouteImport.update({
   path: '/aulas/$id/preparar',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AulasIdResultadoRoute = AulasIdResultadoRouteImport.update({
-  id: '/aulas/$id/resultado',
-  path: '/aulas/$id/resultado',
+const AulasIdEstudarRoute = AulasIdEstudarRouteImport.update({
+  id: '/aulas/$id/estudar',
+  path: '/aulas/$id/estudar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSpotifyPkceRoute = ApiSpotifyPkceRouteImport.update({
+  id: '/api/spotify/pkce',
+  path: '/api/spotify/pkce',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -88,10 +112,14 @@ export interface FileRoutesByFullPath {
   '/config': typeof ConfigRoute
   '/estudar': typeof EstudarRoute
   '/login': typeof LoginRoute
+  '/musicas': typeof MusicasRoute
   '/progresso': typeof ProgressoRoute
+  '/api/lyrics': typeof ApiLyricsRoute
+  '/api/translate': typeof ApiTranslateRoute
   '/sessao/resultado': typeof SessaoResultadoRoute
   '/aulas/': typeof AulasIndexRoute
   '/sessao/': typeof SessaoIndexRoute
+  '/api/spotify/pkce': typeof ApiSpotifyPkceRoute
   '/aulas/$id/estudar': typeof AulasIdEstudarRoute
   '/aulas/$id/preparar': typeof AulasIdPrepararRoute
   '/aulas/$id/resultado': typeof AulasIdResultadoRoute
@@ -102,10 +130,14 @@ export interface FileRoutesByTo {
   '/config': typeof ConfigRoute
   '/estudar': typeof EstudarRoute
   '/login': typeof LoginRoute
+  '/musicas': typeof MusicasRoute
   '/progresso': typeof ProgressoRoute
+  '/api/lyrics': typeof ApiLyricsRoute
+  '/api/translate': typeof ApiTranslateRoute
   '/sessao/resultado': typeof SessaoResultadoRoute
   '/aulas': typeof AulasIndexRoute
   '/sessao': typeof SessaoIndexRoute
+  '/api/spotify/pkce': typeof ApiSpotifyPkceRoute
   '/aulas/$id/estudar': typeof AulasIdEstudarRoute
   '/aulas/$id/preparar': typeof AulasIdPrepararRoute
   '/aulas/$id/resultado': typeof AulasIdResultadoRoute
@@ -117,10 +149,14 @@ export interface FileRoutesById {
   '/config': typeof ConfigRoute
   '/estudar': typeof EstudarRoute
   '/login': typeof LoginRoute
+  '/musicas': typeof MusicasRoute
   '/progresso': typeof ProgressoRoute
+  '/api/lyrics': typeof ApiLyricsRoute
+  '/api/translate': typeof ApiTranslateRoute
   '/sessao/resultado': typeof SessaoResultadoRoute
   '/aulas/': typeof AulasIndexRoute
   '/sessao/': typeof SessaoIndexRoute
+  '/api/spotify/pkce': typeof ApiSpotifyPkceRoute
   '/aulas/$id/estudar': typeof AulasIdEstudarRoute
   '/aulas/$id/preparar': typeof AulasIdPrepararRoute
   '/aulas/$id/resultado': typeof AulasIdResultadoRoute
@@ -133,10 +169,14 @@ export interface FileRouteTypes {
     | '/config'
     | '/estudar'
     | '/login'
+    | '/musicas'
     | '/progresso'
+    | '/api/lyrics'
+    | '/api/translate'
     | '/sessao/resultado'
     | '/aulas/'
     | '/sessao/'
+    | '/api/spotify/pkce'
     | '/aulas/$id/estudar'
     | '/aulas/$id/preparar'
     | '/aulas/$id/resultado'
@@ -147,10 +187,14 @@ export interface FileRouteTypes {
     | '/config'
     | '/estudar'
     | '/login'
+    | '/musicas'
     | '/progresso'
+    | '/api/lyrics'
+    | '/api/translate'
     | '/sessao/resultado'
     | '/aulas'
     | '/sessao'
+    | '/api/spotify/pkce'
     | '/aulas/$id/estudar'
     | '/aulas/$id/preparar'
     | '/aulas/$id/resultado'
@@ -161,10 +205,14 @@ export interface FileRouteTypes {
     | '/config'
     | '/estudar'
     | '/login'
+    | '/musicas'
     | '/progresso'
+    | '/api/lyrics'
+    | '/api/translate'
     | '/sessao/resultado'
     | '/aulas/'
     | '/sessao/'
+    | '/api/spotify/pkce'
     | '/aulas/$id/estudar'
     | '/aulas/$id/preparar'
     | '/aulas/$id/resultado'
@@ -176,10 +224,14 @@ export interface RootRouteChildren {
   ConfigRoute: typeof ConfigRoute
   EstudarRoute: typeof EstudarRoute
   LoginRoute: typeof LoginRoute
+  MusicasRoute: typeof MusicasRoute
   ProgressoRoute: typeof ProgressoRoute
+  ApiLyricsRoute: typeof ApiLyricsRoute
+  ApiTranslateRoute: typeof ApiTranslateRoute
   SessaoResultadoRoute: typeof SessaoResultadoRoute
   AulasIndexRoute: typeof AulasIndexRoute
   SessaoIndexRoute: typeof SessaoIndexRoute
+  ApiSpotifyPkceRoute: typeof ApiSpotifyPkceRoute
   AulasIdEstudarRoute: typeof AulasIdEstudarRoute
   AulasIdPrepararRoute: typeof AulasIdPrepararRoute
   AulasIdResultadoRoute: typeof AulasIdResultadoRoute
@@ -188,25 +240,18 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/progresso': {
+      id: '/progresso'
+      path: '/progresso'
+      fullPath: '/progresso'
+      preLoaderRoute: typeof ProgressoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/config': {
-      id: '/config'
-      path: '/config'
-      fullPath: '/config'
-      preLoaderRoute: typeof ConfigRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estudar': {
-      id: '/estudar'
-      path: '/estudar'
-      fullPath: '/estudar'
-      preLoaderRoute: typeof EstudarRouteImport
+    '/musicas': {
+      id: '/musicas'
+      path: '/musicas'
+      fullPath: '/musicas'
+      preLoaderRoute: typeof MusicasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -216,18 +261,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/progresso': {
-      id: '/progresso'
-      path: '/progresso'
-      fullPath: '/progresso'
-      preLoaderRoute: typeof ProgressoRouteImport
+    '/estudar': {
+      id: '/estudar'
+      path: '/estudar'
+      fullPath: '/estudar'
+      preLoaderRoute: typeof EstudarRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/aulas/': {
-      id: '/aulas/'
-      path: '/aulas'
-      fullPath: '/aulas/'
-      preLoaderRoute: typeof AulasIndexRouteImport
+    '/config': {
+      id: '/config'
+      path: '/config'
+      fullPath: '/config'
+      preLoaderRoute: typeof ConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sessao/': {
@@ -237,11 +289,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SessaoIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/aulas/': {
+      id: '/aulas/'
+      path: '/aulas'
+      fullPath: '/aulas/'
+      preLoaderRoute: typeof AulasIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sessao/resultado': {
       id: '/sessao/resultado'
       path: '/sessao/resultado'
       fullPath: '/sessao/resultado'
       preLoaderRoute: typeof SessaoResultadoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/translate': {
+      id: '/api/translate'
+      path: '/api/translate'
+      fullPath: '/api/translate'
+      preLoaderRoute: typeof ApiTranslateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lyrics': {
+      id: '/api/lyrics'
+      path: '/api/lyrics'
+      fullPath: '/api/lyrics'
+      preLoaderRoute: typeof ApiLyricsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/aulas/$id/': {
@@ -251,11 +324,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AulasIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/aulas/$id/estudar': {
-      id: '/aulas/$id/estudar'
-      path: '/aulas/$id/estudar'
-      fullPath: '/aulas/$id/estudar'
-      preLoaderRoute: typeof AulasIdEstudarRouteImport
+    '/aulas/$id/resultado': {
+      id: '/aulas/$id/resultado'
+      path: '/aulas/$id/resultado'
+      fullPath: '/aulas/$id/resultado'
+      preLoaderRoute: typeof AulasIdResultadoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/aulas/$id/preparar': {
@@ -265,11 +338,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AulasIdPrepararRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/aulas/$id/resultado': {
-      id: '/aulas/$id/resultado'
-      path: '/aulas/$id/resultado'
-      fullPath: '/aulas/$id/resultado'
-      preLoaderRoute: typeof AulasIdResultadoRouteImport
+    '/aulas/$id/estudar': {
+      id: '/aulas/$id/estudar'
+      path: '/aulas/$id/estudar'
+      fullPath: '/aulas/$id/estudar'
+      preLoaderRoute: typeof AulasIdEstudarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/spotify/pkce': {
+      id: '/api/spotify/pkce'
+      path: '/api/spotify/pkce'
+      fullPath: '/api/spotify/pkce'
+      preLoaderRoute: typeof ApiSpotifyPkceRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -280,10 +360,14 @@ const rootRouteChildren: RootRouteChildren = {
   ConfigRoute: ConfigRoute,
   EstudarRoute: EstudarRoute,
   LoginRoute: LoginRoute,
+  MusicasRoute: MusicasRoute,
   ProgressoRoute: ProgressoRoute,
+  ApiLyricsRoute: ApiLyricsRoute,
+  ApiTranslateRoute: ApiTranslateRoute,
   SessaoResultadoRoute: SessaoResultadoRoute,
   AulasIndexRoute: AulasIndexRoute,
   SessaoIndexRoute: SessaoIndexRoute,
+  ApiSpotifyPkceRoute: ApiSpotifyPkceRoute,
   AulasIdEstudarRoute: AulasIdEstudarRoute,
   AulasIdPrepararRoute: AulasIdPrepararRoute,
   AulasIdResultadoRoute: AulasIdResultadoRoute,
