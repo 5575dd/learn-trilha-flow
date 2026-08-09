@@ -1,7 +1,6 @@
 export type PlaybackLine = {
   start: number;
   end: number;
-  stopAt?: number;
   gapIndexes: number[];
 };
 
@@ -20,8 +19,7 @@ export function findCrossedPendingLine(
   resolved: Record<string, unknown>,
 ) {
   return lines.findIndex((line, lineIndex) => {
-    const stopAt = line.stopAt ?? line.end;
-    const crossedEnd = previousTime < stopAt - 0.03 && time >= stopAt - 0.03;
+    const crossedEnd = previousTime < line.end - 0.03 && time >= line.end - 0.03;
     return crossedEnd && unresolvedGaps(line, lineIndex, resolved).length > 0;
   });
 }

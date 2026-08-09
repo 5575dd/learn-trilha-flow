@@ -71,7 +71,6 @@ type GameLine = {
   id: string;
   start: number;
   end: number;
-  stopAt: number;
   text: string;
   words: string[];
   gapIndexes: number[];
@@ -365,7 +364,6 @@ function buildLines(
         id: `line-${index}`,
         start,
         end: Math.max(start + 0.8, Math.min(audio.duration, nextStart - 0.04)),
-        stopAt: Math.max(start + 0.8, Math.min(audio.duration, nextStart - 0.04)),
         text: phrase.text.trim(),
         words: phrase.text.trim().split(/\s+/),
         gapIndexes: [] as number[],
@@ -384,17 +382,6 @@ function buildLines(
   });
   usable.forEach((line) => {
     line.gapIndexes.sort((a, b) => a - b);
-    const selectedTimings = line.gapIndexes
-      .map((wordIndex) => line.wordTimings.find((timing) => timing.wordIndex === wordIndex))
-      .filter((timing): timing is WordTiming => Boolean(timing));
-    if (selectedTimings.length > 0) {
-      // Para a música exatamente quando a palavra confirmada acabou de ser
-      // ouvida, em vez de depender do fim estimado do verso seguinte.
-      line.stopAt = Math.min(
-        line.end,
-        Math.max(line.start + 0.35, ...selectedTimings.map((timing) => timing.end + 0.12)),
-      );
-    }
   });
   return usable;
 }
@@ -1156,7 +1143,7 @@ export function LyricsGameCourse({
     if (!player) return;
     if (player.paused) {
       setManualPause(false);
-      if (waitingForAnswer && activeLine && player.currentTime >= activeLine.stopAt - 0.1) {
+      if (waitingForAnswer && activeLine && player.currentTime >= activeLine.end - 0.1) {
         player.currentTime = Math.max(0, activeLine.start - 0.15);
         previousTimeRef.current = player.currentTime;
         setCurrentTime(player.currentTime);
@@ -1183,12 +1170,12 @@ export function LyricsGameCourse({
       const stillPending = unresolvedGaps(blockedLine, blockedLineIndex, resolved).length > 0;
       if (blockedLine && stillPending) {
         setActiveLineIndex(blockedLineIndex);
-        if (time >= blockedLine.stopAt - 0.03) {
+        if (time >= blockedLine.end - 0.03) {
           const player = playerRef.current;
           if (player) {
             player.pause();
             player.playbackRate = 1;
-            player.currentTime = Math.max(blockedLine.start, blockedLine.stopAt - 0.04);
+            player.currentTime = Math.max(blockedLine.start, blockedLine.end - 0.04);
           }
           slowReplayEndRef.current = null;
           setWaitingForAnswer(true);
@@ -1208,9 +1195,9 @@ export function LyricsGameCourse({
       if (player) {
         player.pause();
         player.playbackRate = 1;
-        player.currentTime = Math.max(blockedLine.start, blockedLine.stopAt - 0.04);
+        player.currentTime = Math.max(blockedLine.start, blockedLine.end - 0.04);
       }
-      previousTimeRef.current = Math.max(blockedLine.start, blockedLine.stopAt - 0.04);
+      previousTimeRef.current = Math.max(blockedLine.start, blockedLine.end - 0.04);
       slowReplayEndRef.current = null;
       manualScrollUntilRef.current = 0;
       blockedLineIndexRef.current = crossedPendingLine;
@@ -1505,7 +1492,7 @@ export function LyricsGameCourse({
                                 autoComplete="off"
                                 inputMode="text"
                                 maxLength={parts.clean.length}
-                                size={Math.max(2, parts.clean.length)}
+                                size={Math.max(3, parts.clean.length + 1)}
                                 spellCheck={false}
                                 tabIndex={isInteractive ? 0 : -1}
                                 value={isActive && !status ? (typed[key] ?? "") : parts.clean}
