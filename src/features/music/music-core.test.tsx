@@ -78,6 +78,7 @@ describe("estado do exercício", () => {
   ];
 
   it("trava no fim do verso com lacuna pendente", () => {
+    expect(findCrossedPendingLine(lines, 10.8, 11.2, {})).toBe(-1);
     expect(findCrossedPendingLine(lines, 13.8, 14, {})).toBe(0);
     expect(unresolvedGaps(lines[0], 0, {})).toEqual([1]);
   });
