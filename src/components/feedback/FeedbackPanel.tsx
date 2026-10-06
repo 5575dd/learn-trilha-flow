@@ -12,31 +12,34 @@ export function FeedbackPanel({
 }) {
   const isCorrect = result.status === "correct";
   const isInvalid = result.status === "invalid";
-  const isSelfEvaluation = result.status === "neutral" || result.status === "skipped";
+  const isSelfEvaluation = result.diagnosticCode.startsWith("selfeval.");
   const remembered = result.diagnosticCode === "selfeval.know";
+  const skipped = result.diagnosticCode === "selfeval.skip";
   const acceptedWithSpellingWarning = result.diagnosticCode === "match.diacritic_variant";
   const title = acceptedWithSpellingWarning
     ? "Correto, com atenção"
-    : isCorrect
-      ? "Perfeito!"
-      : isInvalid
-        ? "Resposta incompleta"
-        : isSelfEvaluation
-          ? remembered
-            ? "Ótimo, registrado!"
-            : "Tudo bem, vamos revisar"
+    : isSelfEvaluation
+      ? skipped
+        ? "Atividade pulada"
+        : remembered
+          ? "Ótimo, registrado!"
+          : "Tudo bem, vamos revisar"
+      : isCorrect
+        ? "Perfeito!"
+        : isInvalid
+          ? "Resposta incompleta"
           : "Ainda não";
   return (
     <div
       role="status"
       aria-live="polite"
       className={`rounded-3xl border p-4 shadow-card ${
-        isCorrect
-          ? "border-transparent bg-success-soft text-success-soft-foreground"
-          : isSelfEvaluation
-            ? remembered
-              ? "border-transparent bg-primary-soft text-primary-soft-foreground"
-              : "border-transparent bg-warning-soft text-warning-soft-foreground"
+        isSelfEvaluation
+          ? remembered
+            ? "border-transparent bg-primary-soft text-primary-soft-foreground"
+            : "border-transparent bg-warning-soft text-warning-soft-foreground"
+          : isCorrect
+            ? "border-transparent bg-success-soft text-success-soft-foreground"
             : isInvalid
               ? "border-transparent bg-warning-soft text-warning-soft-foreground"
               : "border-transparent bg-destructive-soft text-destructive-soft-foreground"
@@ -44,11 +47,21 @@ export function FeedbackPanel({
     >
       <p className="font-display text-base font-bold">{title}</p>
       {isSelfEvaluation ? (
-        <p className="mt-2 text-sm">
-          {remembered
-            ? "Você marcou este conteúdo como dominado."
-            : "Este conteúdo ficará sinalizado como ponto de revisão."}
-        </p>
+        <div className="mt-2 space-y-1 text-sm">
+          <p>
+            {skipped
+              ? "Esta atividade foi pulada, sem indicar acerto ou erro."
+              : remembered
+                ? "Você marcou este conteúdo como dominado."
+                : "Você marcou que ainda não domina este conteúdo. Ele entrará na revisão."}
+          </p>
+          {result.correctAnswerDisplay && (
+            <p>
+              <span className="font-semibold">Resposta de referência:</span>{" "}
+              {result.correctAnswerDisplay}
+            </p>
+          )}
+        </div>
       ) : acceptedWithSpellingWarning ? (
         <div className="mt-2 space-y-1 text-sm">
           <p>Sua resposta foi aceita porque a diferença foi apenas de acentuação.</p>
