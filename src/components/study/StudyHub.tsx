@@ -11,6 +11,7 @@ import {
 } from "@/domain/session/sessionSourceBuilder";
 import type { SessionCriteria, SessionSource } from "@/domain/session/sessionManifest";
 import type { ReviewState } from "@/domain/review/reviewProjection";
+import { groupLessonSessions } from "@/domain/session/lessonSessions";
 
 export interface StudyHubProps {
   userId: string;
@@ -49,6 +50,14 @@ export function StudyHub({
     [questions],
   );
   const [aulaId, setAulaId] = useState(() => String(availableAulas[0]?.id ?? ""));
+  const [sessionNumber, setSessionNumber] = useState(1);
+  const lessonSessions = useMemo(
+    () => groupLessonSessions(questions.filter((question) => question.aulaId === Number(aulaId))),
+    [aulaId, questions],
+  );
+  const availableSessions = lessonSessions.filter((group) => group.available);
+  const selectedSession =
+    availableSessions.find((group) => group.session === sessionNumber) ?? availableSessions[0];
   const [questionType, setQuestionType] = useState<SupportedKind | "">(
     () => availableTypes[0] ?? "",
   );
@@ -189,17 +198,33 @@ export function StudyHub({
                 </option>
               ))}
             </select>
+            {availableSessions.length > 0 && (
+              <select
+                aria-label="Sessão da aula"
+                value={selectedSession?.session ?? ""}
+                onChange={(event) => setSessionNumber(Number(event.target.value))}
+                className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              >
+                {availableSessions.map((group) => (
+                  <option key={group.session} value={group.session}>
+                    Sessão {group.session} de {lessonSessions.length} · {group.questions.length}{" "}
+                    atividades
+                  </option>
+                ))}
+              </select>
+            )}
             <Action
               onClick={() => {
                 const selectedAulaId = Number(aulaId);
+                if (!selectedSession) return;
                 createAndOpen(
                   { kind: "aula", aulaId: selectedAulaId },
-                  { aulaId: selectedAulaId },
-                  buildAulaQuestionIds(questions, selectedAulaId),
+                  { aulaId: selectedAulaId, sessionNumber: selectedSession.session },
+                  buildAulaQuestionIds(questions, selectedAulaId, selectedSession.session),
                 );
               }}
             >
-              Estudar aula
+              Estudar sessão
             </Action>
           </>
         ) : (

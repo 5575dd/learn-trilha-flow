@@ -67,6 +67,7 @@ export function StudySession({
 }: StudySessionProps) {
   const [state, dispatch] = useReducer(sessionReducer, initialSession);
   const [recoverableSession, setRecoverableSession] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const submittingRef = useRef(false);
   const initializationRef = useRef(0);
   const lastRequestRef = useRef("");
@@ -334,7 +335,12 @@ export function StudySession({
     if (state.attempts.some((attempt) => attempt.questionId === current.id)) return;
     submittingRef.current = true;
     try {
+      setSubmitError("");
       const result = evaluateAnswer(current, input);
+      if (result.status === "invalid") {
+        setSubmitError("Complete a resposta antes de verificar.");
+        return;
+      }
       const attempt: AttemptRecord = {
         attemptId: `${state.sessionId}-${current.id}`,
         questionId: current.id,
@@ -346,10 +352,7 @@ export function StudySession({
       await repository.save(userId, state.sessionId, attempt);
       dispatch({ type: "SUBMIT", attempt });
     } catch {
-      dispatch({
-        type: "ERROR",
-        message: "Sua resposta não foi salva. Libere espaço ou permita o armazenamento local.",
-      });
+      setSubmitError("Sua resposta não foi salva. Verifique o armazenamento e tente novamente.");
     } finally {
       setTimeout(() => {
         submittingRef.current = false;
@@ -359,9 +362,11 @@ export function StudySession({
 
   const progress = ((state.index + (showingFeedback ? 1 : 0)) / state.questions.length) * 100;
   const block =
-    state.questions.length >= 30
-      ? Math.min(3, Math.floor(state.index / Math.ceil(state.questions.length / 3)) + 1)
-      : null;
+    state.questions.length === 20
+      ? Math.min(2, Math.floor(state.index / 10) + 1)
+      : state.questions.length >= 30
+        ? Math.min(3, Math.floor(state.index / Math.ceil(state.questions.length / 3)) + 1)
+        : null;
 
   return (
     <div className="space-y-4">
@@ -371,7 +376,7 @@ export function StudySession({
             {state.index + 1} / {state.questions.length}
           </span>
           <span>
-            {block ? `Bloco ${block} de 3 • ` : ""}
+            {block ? `Bloco ${block} de ${state.questions.length === 20 ? 2 : 3} • ` : ""}
             {questionKindLabelPtBr(current.kind)}
           </span>
         </div>
@@ -393,6 +398,12 @@ export function StudySession({
         disabled={showingFeedback}
         onSubmit={(input) => void handleSubmit(input)}
       />
+
+      {submitError && (
+        <p role="alert" className="text-sm text-rose-700">
+          {submitError}
+        </p>
+      )}
 
       {showingFeedback && lastAttempt && (
         <FeedbackPanel

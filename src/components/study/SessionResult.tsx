@@ -29,6 +29,10 @@ export function SessionResult({
   const [pendingSync, setPendingSync] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    setAttempts([]);
+    setError("");
+    setLoading(true);
     if (manifest.userId !== userId) {
       setError("Esta sessão não pertence ao usuário atual.");
       setLoading(false);
@@ -36,9 +40,18 @@ export function SessionResult({
     }
     void repository
       .load(userId, manifest.id)
-      .then(setAttempts)
-      .catch(() => setError("Não foi possível carregar o resultado."))
-      .finally(() => setLoading(false));
+      .then((loaded) => {
+        if (!cancelled) setAttempts(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Não foi possível carregar o resultado.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [manifest.id, manifest.userId, repository, userId]);
 
   useEffect(() => {
@@ -69,8 +82,14 @@ export function SessionResult({
 
   const correct = attempts.filter((attempt) => attempt.result.status === "correct").length;
   const incorrect = attempts.filter((attempt) => attempt.result.status === "incorrect").length;
-  const selfEvaluated = attempts.filter((attempt) => attempt.result.status === "neutral").length;
-  const unanswered = attempts.length - correct - incorrect - selfEvaluated;
+  const selfEvaluated = attempts.filter((attempt) =>
+    attempt.result.diagnosticCode.startsWith("selfeval."),
+  ).length;
+  const skipped = attempts.filter((attempt) => attempt.result.status === "skipped").length;
+  const unanswered = Math.max(
+    0,
+    manifest.questionIds.length - new Set(attempts.map((attempt) => attempt.questionId)).size,
+  );
   const denominator = correct + incorrect;
   const rate = denominator > 0 ? Math.round((correct / denominator) * 100) : null;
   const errorIds = buildErrorQuestionIdsFromIds(attempts, manifest.questionIds);
@@ -102,7 +121,10 @@ export function SessionResult({
         <p className="mt-1 text-xs opacity-80">
           {correct} acertos • {incorrect} erros
           {selfEvaluated > 0 ? ` • ${selfEvaluated} autoavaliações` : ""}
-          {unanswered > 0 ? ` • ${unanswered} não respondidas` : ""}
+          {skipped > 0 ? ` • ${skipped} puladas` : ""}
+          {unanswered > 0
+            ? ` • ${unanswered} não ${unanswered === 1 ? "respondida" : "respondidas"}`
+            : ""}
         </p>
       </div>
       {pendingSync && (
