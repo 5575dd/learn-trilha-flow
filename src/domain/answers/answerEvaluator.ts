@@ -79,11 +79,16 @@ export function evaluateAnswer(q: ValidQuestion, input: StudentInput): Evaluatio
     );
   }
 
-  if (q.kind === "FLASHCARD" || q.kind === "OPEN") {
-    // Self-assessment. Never auto-correct. Always neutral for progress.
+  if (
+    q.kind === "FLASHCARD" ||
+    q.kind === "OPEN" ||
+    (q.kind === "SHORT_ANSWER" && q.gradingMode === "self")
+  ) {
+    // The student explicitly grades recall after seeing the reference answer.
     const mark = input.selfEval;
     if (!mark) return base(q, input.text ?? "", "invalid", "selfeval.missing");
-    return base(q, input.text ?? mark, "neutral", `selfeval.${mark}`);
+    const status = mark === "know" ? "correct" : mark === "unknown" ? "incorrect" : "skipped";
+    return base(q, input.text ?? mark, status, `selfeval.${mark}`);
   }
 
   const text = (input.text ?? "").trim();
