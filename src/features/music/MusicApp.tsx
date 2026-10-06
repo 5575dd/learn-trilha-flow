@@ -29,14 +29,7 @@ const CURRENT_LYRICS_VERSION = 20;
 const CURRENT_ALIGNMENT_VERSION = 4;
 
 type View =
-  | "home"
-  | "library"
-  | "song"
-  | "listen"
-  | "lesson"
-  | "practice"
-  | "result"
-  | "spotify-course";
+  "home" | "library" | "song" | "listen" | "lesson" | "practice" | "result" | "spotify-course";
 type Mode = "commute" | "home";
 type SongStatus = "ready" | "waiting";
 
