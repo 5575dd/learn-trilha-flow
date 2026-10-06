@@ -1,10 +1,7 @@
 import { isSessionManifest, type SessionManifest } from "@/domain/session/sessionManifest";
 
 export type ManifestConflictCode =
-  | "invalid_manifest"
-  | "wrong_user"
-  | "question_ids_changed"
-  | "immutable_fields_changed";
+  "invalid_manifest" | "wrong_user" | "question_ids_changed" | "immutable_fields_changed";
 
 export class ManifestConflictError extends Error {
   readonly code: ManifestConflictCode;

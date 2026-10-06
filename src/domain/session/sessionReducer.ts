@@ -2,14 +2,7 @@ import type { ValidQuestion } from "../questions/questionTypes";
 import type { EvaluationResult } from "../answers/evaluationTypes";
 
 export type SessionPhase =
-  | "loading"
-  | "ready"
-  | "answering"
-  | "evaluating"
-  | "feedback"
-  | "paused"
-  | "completed"
-  | "error";
+  "loading" | "ready" | "answering" | "evaluating" | "feedback" | "paused" | "completed" | "error";
 
 export interface AttemptRecord {
   attemptId: string;
