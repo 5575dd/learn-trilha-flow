@@ -103,6 +103,84 @@ function makeShuffle<T>(arr: T[]): T[] {
   return out;
 }
 
+function legacyCorrection(question: string, original: string, answer: string): string | null {
+  const instruction = answer.match(
+    /^(?:change|replace)\s+['‘“]([^'’”]+)['’”]\s+(?:to|with)\s+['‘“]([^'’”]+)['’”]/i,
+  );
+  const sentence = original || question.match(/for:\s*['‘“]([^'’”]+)['’”]/i)?.[1] || "";
+  if (!instruction || !sentence) return null;
+  const position = sentence.toLowerCase().indexOf(instruction[1].toLowerCase());
+  if (position < 0) return null;
+  return `${sentence.slice(0, position)}${instruction[2]}${sentence.slice(position + instruction[1].length)}`;
+}
+
+function legacyFlashcard(text: string): { front: string; back: string } | null {
+  const match = text.match(/\bFront:\s*(.*?)\s+Back:\s*(.*?)(?:\s+Tip:|$)/i);
+  return match?.[1] && match?.[2] ? { front: match[1].trim(), back: match[2].trim() } : null;
+}
+
+function parseClassificationGroups(raw: unknown[]): {
+  categories: string[];
+  items: Array<{ id: string; text: string; category: string }>;
+  repaired: boolean;
+} | null {
+  const groups = raw.flatMap((value) => {
+    if (!value || typeof value !== "object") return [];
+    const group = value as Record<string, unknown>;
+    const name = String(group.name ?? "").trim();
+    const items = Array.isArray(group.items)
+      ? group.items.map((item) => String(item ?? "").trim()).filter(Boolean)
+      : [];
+    return name && items.length ? [{ name, items }] : [];
+  });
+  const names = new Set(groups.map((group) => group.name));
+  const incoming = new Map<string, number>();
+  groups.forEach((group) =>
+    group.items.forEach((item) => {
+      if (item !== group.name && names.has(item)) {
+        incoming.set(item, (incoming.get(item) ?? 0) + 1);
+      }
+    }),
+  );
+  const inverted =
+    groups.length > 2 && [...incoming.values()].filter((count) => count >= 2).length === 2;
+  const categories = inverted
+    ? [...incoming.entries()].filter(([, count]) => count >= 2).map(([name]) => name)
+    : groups.map((group) => group.name);
+  if (categories.length < 2 || new Set(categories).size !== categories.length) return null;
+
+  const assignments = new Map<string, string>();
+  for (const group of groups) {
+    if (categories.includes(group.name)) {
+      for (const item of group.items) {
+        if (categories.includes(item)) return null;
+        if (assignments.has(item) && assignments.get(item) !== group.name) return null;
+        assignments.set(item, group.name);
+      }
+    } else if (inverted) {
+      const targets = group.items.filter((item) => categories.includes(item));
+      if (targets.length !== 1) return null;
+      if (assignments.has(group.name) && assignments.get(group.name) !== targets[0]) return null;
+      assignments.set(group.name, targets[0]);
+    }
+  }
+  if (
+    assignments.size < 3 ||
+    categories.some((name) => ![...assignments.values()].includes(name))
+  ) {
+    return null;
+  }
+  return {
+    categories,
+    items: [...assignments].map(([text, category], index) => ({
+      id: `item-${index}`,
+      text,
+      category,
+    })),
+    repaired: inverted,
+  };
+}
+
 export function buildOrderBlocks(options: string[]): OrderBlock[] {
   return options.map((text, idx) => ({ id: `${idx}:${text}`, text }));
 }
@@ -156,6 +234,20 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
     if (options.length < 2) {
       return { status: "invalid", id: row.id, tipo: kind, reason: "opções insuficientes" };
     }
+    if (new Set(options.map((option) => option.toLocaleLowerCase())).size !== options.length) {
+      return { status: "invalid", id: row.id, tipo: kind, reason: "opções repetidas" };
+    }
+    const supportText = String(meta.support_text ?? "").trim();
+    const audioText = (row.audio_texto ?? "").trim();
+    if (kind === "READING_MC" && (!supportText || supportText === enunciado)) {
+      return { status: "invalid", id: row.id, tipo: kind, reason: "texto de leitura ausente" };
+    }
+    if (kind === "MICROSCENARIO" && (!supportText || supportText === enunciado)) {
+      return { status: "invalid", id: row.id, tipo: kind, reason: "cenário ausente" };
+    }
+    if (kind === "LISTENING_MC" && (!audioText || audioText === enunciado)) {
+      return { status: "invalid", id: row.id, tipo: kind, reason: "áudio da questão ausente" };
+    }
     let answerText = canonical;
     const letter = resolveMCLetter(canonical, options);
     if (letter) {
@@ -177,11 +269,8 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
       kind,
       options,
       canonicalAnswerText: answerText,
-      supportText:
-        kind === "READING_MC" || kind === "MICROSCENARIO"
-          ? String(meta.support_text ?? "").trim() || undefined
-          : undefined,
-      audioText: kind === "LISTENING_MC" ? (row.audio_texto ?? "").trim() || undefined : undefined,
+      supportText: kind === "READING_MC" || kind === "MICROSCENARIO" ? supportText : undefined,
+      audioText: kind === "LISTENING_MC" ? audioText : undefined,
     };
     return repaired
       ? { status: "repairable", question: q, notes }
@@ -189,6 +278,14 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
   }
 
   if (kind === "TF") {
+    if (/\b(base validada|validated base)\b/i.test(enunciado)) {
+      return {
+        status: "invalid",
+        id: row.id,
+        tipo: kind,
+        reason: "afirmação de verdadeiro ou falso incompleta",
+      };
+    }
     const raw = canonical.toLowerCase();
     let canonicalTF: "True" | "False" | null = null;
     if (["true", "t", "verdadeiro", "v", "1", "sim"].includes(raw)) canonicalTF = "True";
@@ -208,6 +305,20 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
 
   if (kind === "FB") {
     const options = parseOptions(row.opcoes, meta);
+    if ((enunciado.match(/_{2,}/g) ?? []).length !== 1) {
+      return { status: "invalid", id: row.id, tipo: kind, reason: "lacuna ausente ou repetida" };
+    }
+    if (
+      options.length > 0 &&
+      !options.some((option) => option.toLocaleLowerCase() === canonical.toLocaleLowerCase())
+    ) {
+      return {
+        status: "invalid",
+        id: row.id,
+        tipo: kind,
+        reason: "gabarito fora das opções de lacuna",
+      };
+    }
     const q: ValidQuestion = {
       ...base,
       kind: "FB",
@@ -274,15 +385,54 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
   }
 
   if (kind === "SHORT_ANSWER" || kind === "DICTATION" || kind === "CORRECTION") {
+    const original = String(meta.original ?? "").trim();
+    if (
+      kind === "DICTATION" &&
+      (!row.audio_texto?.trim() ||
+        row.audio_texto.trim().toLocaleLowerCase() !== canonical.toLocaleLowerCase())
+    ) {
+      return {
+        status: "invalid",
+        id: row.id,
+        tipo: kind,
+        reason: "áudio do ditado não corresponde ao gabarito",
+      };
+    }
+    const corrected =
+      kind === "CORRECTION" ? legacyCorrection(enunciado, original, canonical) : null;
+    if (
+      kind === "CORRECTION" &&
+      /^(?:change|replace|correct|fix)\b/i.test(canonical) &&
+      !corrected
+    ) {
+      return {
+        status: "invalid",
+        id: row.id,
+        tipo: kind,
+        reason: "gabarito de correção sem frase corrigida",
+      };
+    }
+    const answer = corrected ?? canonical;
     const q: ValidQuestion = {
       ...base,
       kind,
-      canonicalAnswerText: canonical,
+      canonicalAnswerText: answer,
+      gradingMode:
+        kind === "SHORT_ANSWER" &&
+        (/^(?:explain|describe|compare|why\b|how\b|what is the difference\b)/i.test(enunciado) ||
+          canonical.split(/\s+/).length > 8)
+          ? "self"
+          : undefined,
       audioText: kind === "DICTATION" ? (row.audio_texto ?? "").trim() || undefined : undefined,
-      supportText:
-        kind === "CORRECTION" ? String(meta.original ?? "").trim() || undefined : undefined,
+      supportText: kind === "CORRECTION" ? original || undefined : undefined,
     };
-    return { status: "valid", question: q };
+    return corrected
+      ? {
+          status: "repairable",
+          question: q,
+          notes: ["frase corrigida recuperada do gabarito antigo"],
+        }
+      : { status: "valid", question: q };
   }
 
   if (kind === "MATCHING") {
@@ -314,21 +464,8 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
 
   if (kind === "CLASSIFY") {
     const rawCategories = Array.isArray(meta.categories) ? meta.categories : [];
-    const categories: string[] = [];
-    const items: Array<{ id: string; text: string; category: string }> = [];
-    rawCategories.forEach((value, categoryIndex) => {
-      if (!value || typeof value !== "object") return;
-      const group = value as Record<string, unknown>;
-      const name = String(group.name ?? "").trim();
-      if (!name || !Array.isArray(group.items)) return;
-      categories.push(name);
-      group.items.forEach((item, itemIndex) => {
-        const text = String(item ?? "").trim();
-        if (text)
-          items.push({ id: `category-${categoryIndex}-${itemIndex}`, text, category: name });
-      });
-    });
-    if (categories.length < 2 || items.length < 3) {
+    const groups = parseClassificationGroups(rawCategories);
+    if (!groups) {
       return {
         status: "invalid",
         id: row.id,
@@ -339,31 +476,39 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
     const q: ValidQuestion = {
       ...base,
       kind: "CLASSIFY",
-      categories,
-      items: makeShuffle(items),
-      canonicalAnswerText: categories
+      categories: groups.categories,
+      items: makeShuffle(groups.items),
+      canonicalAnswerText: groups.categories
         .map(
           (category) =>
-            `${category}: ${items
+            `${category}: ${groups.items
               .filter((item) => item.category === category)
               .map((item) => item.text)
               .join(", ")}`,
         )
         .join(" • "),
     };
-    return { status: "valid", question: q };
+    return groups.repaired
+      ? { status: "repairable", question: q, notes: ["categorias antigas normalizadas"] }
+      : { status: "valid", question: q };
   }
 
   if (kind === "FLASHCARD" || kind === "OPEN") {
-    const frontText = String(meta.front ?? meta.prompt ?? meta.scenario ?? "").trim() || enunciado;
+    const legacy = kind === "FLASHCARD" ? legacyFlashcard(enunciado) : null;
+    const frontText =
+      legacy?.front ??
+      (String(meta.front ?? meta.prompt ?? meta.scenario ?? "").trim() || enunciado);
     const q: ValidQuestion = {
       ...base,
+      enunciado: legacy?.front ?? enunciado,
       kind,
-      canonicalAnswerText: canonical,
+      canonicalAnswerText: legacy?.back ?? canonical,
       frontText: frontText || undefined,
       audioText: (row.audio_texto ?? "").trim() || undefined,
     };
-    return { status: "valid", question: q };
+    return legacy
+      ? { status: "repairable", question: q, notes: ["frente e verso separados do cartão antigo"] }
+      : { status: "valid", question: q };
   }
 
   return { status: "invalid", id: row.id, tipo: kind, reason: "tipo não tratado" };

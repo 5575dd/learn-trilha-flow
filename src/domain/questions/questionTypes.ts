@@ -85,6 +85,7 @@ export interface ORDERQuestion extends BaseQuestion {
 export interface TextInputQuestion extends BaseQuestion {
   kind: "SHORT_ANSWER" | "DICTATION" | "CORRECTION";
   canonicalAnswerText: string;
+  gradingMode?: "self";
   audioText?: string;
   supportText?: string;
 }
