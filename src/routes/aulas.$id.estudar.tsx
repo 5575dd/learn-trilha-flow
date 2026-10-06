@@ -93,7 +93,7 @@ function StudyView({
   if (!group) {
     return (
       <div className="space-y-3 rounded-2xl bg-warning-soft p-4 text-warning-soft-foreground">
-        <p className="font-semibold">Escolha uma das três sessões desta aula.</p>
+        <p className="font-semibold">Escolha uma sessão desta aula.</p>
         <Link
           to="/aulas/$id/preparar"
           params={{ id: String(aulaId) }}
@@ -124,7 +124,7 @@ function StudyView({
     <div className="space-y-4">
       <header>
         <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-          Sessão {group.session} de 3
+          Sessão {group.session} de {groups.length}
         </p>
         <h1 className="font-display text-xl font-bold text-foreground">{group.title}</h1>
         <p className="text-sm text-muted-foreground">

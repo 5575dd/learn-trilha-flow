@@ -49,7 +49,7 @@ function PrepareView({ aulaId }: { aulaId: number }) {
       <header>
         <h1 className="text-2xl font-bold text-slate-900">Preparar sessão</h1>
         <p className="text-sm text-slate-500">
-          Esta aula é revisada em três momentos diferentes. Você pode pausar e retomar.
+          Esta aula é revisada em {sessions.length} sessões. Você pode pausar e retomar.
         </p>
       </header>
       <div className="grid grid-cols-3 gap-2">

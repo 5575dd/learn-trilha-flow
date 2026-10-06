@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef } from "react";
 import { RequireAuth } from "@/auth/RequireAuth";
 import { useAuth } from "@/auth/AuthContext";
 import { AppShell } from "@/components/layout/AppShell";
@@ -29,9 +29,11 @@ function StudyRoute() {
 
 function StudyPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const previousLessonList = useRef<string | null>(null);
   const { session } = useAuth();
   const userId = session?.user.id ?? "";
-  const aulas = useQuery({ queryKey: ["aulas"], queryFn: listAulas });
+  const aulas = useQuery({ queryKey: ["aulas"], queryFn: listAulas, refetchInterval: 60_000 });
   const rawQuestions = useQuery({
     queryKey: ["questoes-disponiveis"],
     queryFn: listQuestoesDisponiveis,
@@ -57,6 +59,16 @@ function StudyPage() {
       .filter((entry) => entry.status === "valid" || entry.status === "repairable")
       .map((entry) => (entry as { question: ValidQuestion }).question);
   }, [rawQuestions.data]);
+  useEffect(() => {
+    if (!aulas.data) return;
+    const signature = aulas.data
+      .map((aula) => `${aula.id}:${aula.status}:${aula.quantidade_atividades}`)
+      .join("|");
+    if (previousLessonList.current !== null && previousLessonList.current !== signature) {
+      void queryClient.invalidateQueries({ queryKey: ["questoes-disponiveis"] });
+    }
+    previousLessonList.current = signature;
+  }, [aulas.data, queryClient]);
 
   if (aulas.isLoading || rawQuestions.isLoading || attempts.isLoading || !userId) {
     return <p className="text-sm text-slate-500">Carregando modos de estudo…</p>;
