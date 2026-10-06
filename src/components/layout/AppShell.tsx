@@ -32,6 +32,11 @@ export function AppShell({
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 z-30 bg-background"
+        style={{ height: "env(safe-area-inset-top)" }}
+      />
       {!immersive && (
         <div
           aria-hidden
@@ -40,7 +45,9 @@ export function AppShell({
       )}
       <div
         className={`relative mx-auto flex min-h-dvh w-full flex-col ${
-          immersive ? "max-w-none p-0" : "max-w-md px-4 pb-28 pt-4 sm:max-w-lg"
+          immersive
+            ? "max-w-none p-0"
+            : "max-w-md px-4 pb-28 pt-[calc(1rem+env(safe-area-inset-top))] sm:max-w-lg"
         }`}
       >
         {!hideHeader && !immersive && (
