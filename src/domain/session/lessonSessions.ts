@@ -45,7 +45,10 @@ export function groupLessonSessions(
   questions: readonly ValidQuestion[],
   now = Date.now(),
 ): LessonSessionGroup[] {
-  return ([1, 2, 3] as const).map((session) => {
+  const sessionNumbers = questions.some((question) => question.sessao === 3)
+    ? ([1, 2, 3] as const)
+    : ([1, 2] as const);
+  return sessionNumbers.map((session) => {
     const sessionQuestions = questions
       .filter((question) => question.sessao === session)
       .sort((left, right) => left.ordem - right.ordem || left.id - right.id);
@@ -53,7 +56,7 @@ export function groupLessonSessions(
       .map((question) => question.releaseAt)
       .filter((value): value is string => Boolean(value))
       .sort((left, right) => (releaseTimestamp(left) ?? 0) - (releaseTimestamp(right) ?? 0));
-    const releaseAt = releases[0];
+    const releaseAt = releases.at(-1);
     return {
       session,
       ...LESSON_SESSION_INFO[session],

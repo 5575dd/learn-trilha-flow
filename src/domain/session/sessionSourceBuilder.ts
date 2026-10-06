@@ -18,10 +18,14 @@ function deterministic(questions: readonly ValidQuestion[]): ValidQuestion[] {
 export function buildAulaQuestionIds(
   questions: readonly ValidQuestion[],
   aulaId: number,
+  session?: number,
 ): number[] {
   return unique(
     deterministic(questions)
-      .filter((question) => question.aulaId === aulaId)
+      .filter(
+        (question) =>
+          question.aulaId === aulaId && (session === undefined || question.sessao === session),
+      )
       .map((question) => question.id),
   );
 }

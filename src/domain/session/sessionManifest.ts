@@ -14,6 +14,7 @@ export type SessionSource =
 export interface SessionCriteria {
   limit?: number;
   aulaId?: number;
+  sessionNumber?: number;
   questionType?: SupportedKind;
   fromSessionId?: string;
 }
@@ -75,6 +76,10 @@ function isSessionCriteria(value: unknown): value is SessionCriteria {
       (Number.isSafeInteger(criteria.limit) && criteria.limit >= 0)) &&
     (criteria.aulaId === undefined ||
       (Number.isSafeInteger(criteria.aulaId) && criteria.aulaId > 0)) &&
+    (criteria.sessionNumber === undefined ||
+      (Number.isSafeInteger(criteria.sessionNumber) &&
+        criteria.sessionNumber >= 1 &&
+        criteria.sessionNumber <= 3)) &&
     (criteria.questionType === undefined || SUPPORTED_KINDS.includes(criteria.questionType)) &&
     (criteria.fromSessionId === undefined || typeof criteria.fromSessionId === "string")
   );
