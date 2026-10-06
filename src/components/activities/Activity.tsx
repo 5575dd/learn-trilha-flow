@@ -40,6 +40,11 @@ export function Activity({ question, disabled, onSubmit }: ActivityProps) {
     case "DIALOGUE_ORDER":
       return <OrderView q={question} disabled={disabled} onSubmit={onSubmit} />;
     case "SHORT_ANSWER":
+      return question.gradingMode === "self" ? (
+        <SelfEvalView q={{ ...question, kind: "OPEN" }} disabled={disabled} onSubmit={onSubmit} />
+      ) : (
+        <TextView q={question} disabled={disabled} onSubmit={onSubmit} />
+      );
     case "DICTATION":
     case "CORRECTION":
       return <TextView q={question} disabled={disabled} onSubmit={onSubmit} />;
@@ -57,12 +62,14 @@ function Stem({
   text,
   translation,
   hints = [],
+  translationInitiallyVisible = false,
 }: {
   text: string;
   translation?: string;
   hints?: string[];
+  translationInitiallyVisible?: boolean;
 }) {
-  const [showTranslation, setShowTranslation] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(translationInitiallyVisible);
   const [visibleHints, setVisibleHints] = useState(0);
   const translationId = useId();
   const hintId = useId();
@@ -256,6 +263,7 @@ function FBView({
         text={q.enunciado || "Complete a lacuna."}
         translation={q.traducao}
         hints={q.hintsPtbr}
+        translationInitiallyVisible
       />
       <input
         aria-label="Sua resposta"
@@ -421,7 +429,11 @@ function TextView({
   const hints = q.hintsPtbr?.length ? q.hintsPtbr : fallbackTextHints(q, stem);
   return (
     <div className="space-y-4">
-      <Stem text={stem} translation={q.traducao} hints={hints} />
+      <Stem
+        text={stem}
+        translation={q.kind === "DICTATION" ? undefined : q.traducao}
+        hints={hints}
+      />
       {q.kind === "DICTATION" && q.audioText && (
         <ListenButton text={q.audioText} label="🔊 Ouvir ditado" />
       )}
