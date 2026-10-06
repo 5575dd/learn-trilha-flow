@@ -4,6 +4,22 @@ import type { RawQuestion } from "@/domain/questions/questionTypes";
 
 const QUESTION_COLUMNS =
   "id, aula_id, tipo, enunciado, opcoes, resposta_correta, explicacao, traducao, audio_texto, sessao, ordem, dificuldade, metadados, proxima_revisao_em";
+const PAGE_SIZE = 500;
+
+export async function collectPages<T>(
+  fetchPage: (from: number, to: number) => Promise<T[]>,
+  pageSize = PAGE_SIZE,
+): Promise<T[]> {
+  if (!Number.isSafeInteger(pageSize) || pageSize <= 0) {
+    throw new Error("Tamanho de página inválido.");
+  }
+  const rows: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const page = await fetchPage(from, from + pageSize - 1);
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
 
 export interface AulaListItem {
   id: number;
@@ -15,13 +31,16 @@ export interface AulaListItem {
 }
 
 export async function listAulas(): Promise<AulaListItem[]> {
-  const { data, error } = await getSupabase()
-    .from("aulas")
-    .select("id, titulo, tema, data_aula, status, quantidade_atividades")
-    .order("data_aula", { ascending: false, nullsFirst: false })
-    .order("id", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as AulaListItem[];
+  return collectPages(async (from, to) => {
+    const { data, error } = await getSupabase()
+      .from("aulas")
+      .select("id, titulo, tema, data_aula, status, quantidade_atividades")
+      .order("data_aula", { ascending: false, nullsFirst: false })
+      .order("id", { ascending: false })
+      .range(from, to);
+    if (error) throw error;
+    return (data ?? []) as AulaListItem[];
+  });
 }
 
 export async function getAula(id: number): Promise<Aula | null> {
@@ -89,14 +108,19 @@ export async function listQuestoesByIds(ids: readonly number[]): Promise<Questio
 }
 
 export async function listQuestoesDisponiveis(): Promise<RawQuestion[]> {
-  const { data, error } = await getSupabase()
-    .from("questoes")
-    .select(QUESTION_COLUMNS)
-    .order("aula_id", { ascending: true })
-    .order("sessao", { ascending: true })
-    .order("ordem", { ascending: true });
-  if (error) throw error;
-  return ((data ?? []) as RawQuestion[]).filter((question) => isRawQuestionReleased(question));
+  const rows = await collectPages(async (from, to) => {
+    const { data, error } = await getSupabase()
+      .from("questoes")
+      .select(QUESTION_COLUMNS)
+      .order("aula_id", { ascending: true })
+      .order("sessao", { ascending: true })
+      .order("ordem", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to);
+    if (error) throw error;
+    return (data ?? []) as RawQuestion[];
+  });
+  return rows.filter((question) => isRawQuestionReleased(question));
 }
 
 export function isRawQuestionReleased(question: RawQuestion, now = Date.now()): boolean {
