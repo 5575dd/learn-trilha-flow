@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { RotateCw } from "lucide-react";
 import { RequireAuth } from "@/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
 import { getAula, listQuestoesByAula } from "@/data/queries";
@@ -86,11 +87,30 @@ function AulaDetail({ id }: { id: number }) {
         </section>
       )}
 
-      <section className="grid grid-cols-3 gap-2 text-center">
-        <Stat label="Atividades" value={a.quantidade_atividades || validCount} />
-        <Stat label="Prontas" value={validCount} />
-        <Stat label="Não compatíveis" value={unsupportedCount + invalidCount} />
-      </section>
+      {questoes.isLoading ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          Carregando atividades...
+        </p>
+      ) : questoes.error ? (
+        <div role="alert" className="flex items-center gap-3 text-sm text-destructive">
+          <p>Não foi possível carregar as atividades.</p>
+          <button
+            type="button"
+            aria-label="Tentar carregar atividades novamente"
+            title="Tentar carregar atividades novamente"
+            className="grid size-11 shrink-0 place-items-center rounded-lg border border-border"
+            onClick={() => void questoes.refetch()}
+          >
+            <RotateCw className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+      ) : (
+        <section className="grid grid-cols-3 gap-2 text-center">
+          <Stat label="Atividades" value={questoes.data?.length ?? a.quantidade_atividades} />
+          <Stat label="Prontas" value={validCount} />
+          <Stat label="Não compatíveis" value={unsupportedCount + invalidCount} />
+        </section>
+      )}
 
       {section(
         "Objetivos",
@@ -265,7 +285,7 @@ function AulaDetail({ id }: { id: number }) {
       )}
 
       {section(
-        "Suas três sessões",
+        sessionGroups.length === 1 ? "Sua sessão" : "Suas sessões",
         <div className="space-y-3">
           {sessionGroups.map((session) => (
             <div key={session.session} className="rounded-xl bg-muted p-3">
@@ -285,15 +305,17 @@ function AulaDetail({ id }: { id: number }) {
         sessionGroups.some((session) => session.questions.length > 0),
       )}
 
-      <Link
-        to="/aulas/$id/preparar"
-        params={{ id: String(a.id) }}
-        className="fixed inset-x-0 bottom-16 z-10 mx-auto block max-w-md px-4"
-      >
-        <span className="block min-h-12 rounded-2xl bg-purple-600 py-3 text-center text-base font-semibold text-white shadow-md">
-          Preparar sessão
-        </span>
-      </Link>
+      {!questoes.isLoading && !questoes.error && validCount > 0 && (
+        <Link
+          to="/aulas/$id/preparar"
+          params={{ id: String(a.id) }}
+          className="fixed inset-x-0 bottom-16 z-10 mx-auto block max-w-md px-4"
+        >
+          <span className="block min-h-12 rounded-2xl bg-purple-600 py-3 text-center text-base font-semibold text-white shadow-md">
+            Preparar sessão
+          </span>
+        </Link>
+      )}
     </div>
   );
 }
