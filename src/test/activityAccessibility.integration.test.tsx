@@ -56,11 +56,11 @@ describe("accessible activity help", () => {
     expect(onSubmit).toHaveBeenCalledWith({ text: "", selfEval: "know" });
   });
 
-  it("shows self-evaluation as a neutral record instead of an error", () => {
+  it("shows self-evaluation as a manual record rather than an automatic grade", () => {
     render(
       <FeedbackPanel
         result={{
-          status: "neutral",
+          status: "correct",
           studentAnswerDisplay: "know",
           correctAnswerDisplay: "has",
           normalizedStudentAnswer: "know",
@@ -75,6 +75,26 @@ describe("accessible activity help", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Ótimo, registrado!");
     expect(screen.getByRole("status")).not.toHaveTextContent("Gabarito:");
     expect(screen.getByRole("status")).not.toHaveTextContent("Ainda não");
+  });
+
+  it("does not promise a review for a skipped self-evaluation", () => {
+    render(
+      <FeedbackPanel
+        result={{
+          status: "skipped",
+          studentAnswerDisplay: "skip",
+          correctAnswerDisplay: "has",
+          normalizedStudentAnswer: "skip",
+          normalizedCorrectAnswer: "has",
+          explanation: "",
+          diagnosticCode: "selfeval.skip",
+          metadata: {},
+        }}
+        onContinue={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Atividade pulada");
+    expect(screen.getByRole("status")).not.toHaveTextContent("entrará na revisão");
   });
 
   it("shows pronunciation with familiar letters and does not render IPA symbols", async () => {
@@ -109,6 +129,31 @@ describe("accessible activity help", () => {
 
     await user.click(screen.getByRole("button", { name: "Preciso de uma dica" }));
     expect(screen.getByText(/David loves to/)).toBeVisible();
+  });
+
+  it("shows the meaning for fill-in questions before checking polarity", () => {
+    const question: ValidQuestion = {
+      ...base,
+      kind: "FB",
+      enunciado: "_____ a coffee table in the room.",
+      traducao: "Não há uma mesa de centro na sala.",
+      canonicalAnswerText: "There isn't",
+    };
+    render(<Activity question={question} disabled={false} onSubmit={vi.fn()} />);
+    expect(screen.getByText("Não há uma mesa de centro na sala.")).toBeVisible();
+  });
+
+  it("does not reveal the dictated sentence through its old translation", () => {
+    const question: ValidQuestion = {
+      ...base,
+      kind: "DICTATION",
+      enunciado: "Type the sentence heard.",
+      traducao: "Há algumas plantas de interior na sala.",
+      canonicalAnswerText: "There are some indoor plants in the room.",
+      audioText: "There are some indoor plants in the room.",
+    };
+    render(<Activity question={question} disabled={false} onSubmit={vi.fn()} />);
+    expect(screen.queryByText("Há algumas plantas de interior na sala.")).toBeNull();
   });
 
   it("explains when an accent-only spelling difference was accepted", () => {

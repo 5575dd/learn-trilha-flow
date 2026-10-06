@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -286,5 +286,29 @@ describe("StudySession integration", () => {
 
     expect(await screen.findByText(secondTextQuestion.enunciado)).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Sua resposta" })).toHaveValue("");
+  });
+
+  it("keeps the question available for retry when saving fails", async () => {
+    const user = userEvent.setup();
+    const repository = new InMemoryAttemptRepository();
+    const save = vi.spyOn(repository, "save").mockRejectedValueOnce(new Error("quota"));
+    render(
+      <StudySession
+        aulaId={AULA_ID}
+        userId="retry-user"
+        questions={[mcQuestion]}
+        mode="restart"
+        repository={repository}
+        createSessionId={() => "retry-session"}
+      />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Paris" }));
+    await user.click(screen.getByRole("button", { name: "Verificar" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("tente novamente");
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole("button", { name: "Verificar" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Perfeito!");
+    expect(save).toHaveBeenCalledTimes(2);
   });
 });

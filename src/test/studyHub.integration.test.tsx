@@ -200,11 +200,36 @@ describe("StudyHub cards", () => {
       />,
     );
     await user.selectOptions(screen.getByLabelText("Aula"), "2");
-    await user.click(screen.getByRole("button", { name: "Estudar aula" }));
+    await user.click(screen.getByRole("button", { name: "Estudar sessão" }));
     const manifest = store.listByUser("user-a")[0];
     expect(manifest.source).toEqual({ kind: "aula", aulaId: 2 });
+    expect(manifest.criteria).toEqual({ aulaId: 2, sessionNumber: 1 });
     expect(manifest.questionIds).toEqual([3]);
     expect(onOpenManifest).toHaveBeenCalledWith(manifest.id);
+  });
+
+  it("keeps lesson sessions separate when creating a manifest", async () => {
+    const user = userEvent.setup();
+    const { store, onOpenManifest } = setup();
+    const twoSessions: ValidQuestion[] = [
+      ...questions,
+      { ...questions[0], id: 4, sessao: 2, ordem: 1 },
+    ];
+    render(
+      <StudyHub
+        userId="user-a"
+        aulas={aulas}
+        questions={twoSessions}
+        attempts={[]}
+        store={store}
+        onOpenManifest={onOpenManifest}
+      />,
+    );
+    await user.selectOptions(screen.getByRole("combobox", { name: "Sessão da aula" }), "2");
+    await user.click(screen.getByRole("button", { name: "Estudar sessão" }));
+    const manifest = store.listByUser("user-a")[0];
+    expect(manifest.criteria).toEqual({ aulaId: 1, sessionNumber: 2 });
+    expect(manifest.questionIds).toEqual([4]);
   });
 
   it("creates and navigates to the selected question-type manifest", async () => {

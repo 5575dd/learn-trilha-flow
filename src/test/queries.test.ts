@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertValidId,
+  collectPages,
   isRawQuestionReleased,
   listQuestoesByIds,
   orderQuestionsByIds,
@@ -34,6 +35,18 @@ const raw = (id: number): RawQuestion => ({
 });
 
 describe("question ID queries", () => {
+  it("loads every page in order, including a full first page", async () => {
+    const calls: Array<[number, number]> = [];
+    const rows = await collectPages(async (from, to) => {
+      calls.push([from, to]);
+      return from === 0 ? [1, 2] : [3];
+    }, 2);
+    expect(rows).toEqual([1, 2, 3]);
+    expect(calls).toEqual([
+      [0, 1],
+      [2, 3],
+    ]);
+  });
   it("preserves manifest order and reports missing IDs", () => {
     const result = orderQuestionsByIds([3, 1, 2], [raw(1), raw(3)]);
     expect(result.questions.map((question) => question.id)).toEqual([3, 1]);

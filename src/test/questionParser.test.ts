@@ -117,6 +117,68 @@ describe("questionParser", () => {
     expect(entry.question.items).toHaveLength(4);
   });
 
+  it("repairs legacy classifications that repeat items as category names", () => {
+    const entry = parseQuestion(
+      raw({
+        tipo: "CLASSIFY",
+        metadados: {
+          categories: [
+            { name: "Singular", items: ["a white sofa", "an armchair"] },
+            { name: "Plural", items: ["paintings on the wall", "two houses"] },
+            { name: "a white sofa", items: ["Singular"] },
+            { name: "an armchair", items: ["Singular"] },
+            { name: "paintings on the wall", items: ["Plural"] },
+            { name: "two houses", items: ["Plural"] },
+          ],
+        },
+      }),
+    );
+    expect(entry.status).toBe("repairable");
+    if (entry.status !== "repairable" || entry.question.kind !== "CLASSIFY") return;
+    expect(entry.question.categories).toEqual(["Singular", "Plural"]);
+    expect(entry.question.items).toHaveLength(4);
+  });
+
+  it("repairs instruction-style correction answers when the change is unambiguous", () => {
+    const entry = parseQuestion(
+      raw({
+        tipo: "CORRECTION",
+        enunciado: "Identify the correction needed for: 'There is some chairs in the room.'",
+        resposta_correta: "Change 'There is' to 'There are' because chairs is plural.",
+      }),
+    );
+    expect(entry.status).toBe("repairable");
+    if (entry.status !== "repairable" || entry.question.kind !== "CORRECTION") return;
+    expect(entry.question.canonicalAnswerText).toBe("There are some chairs in the room.");
+  });
+
+  it("separates a legacy flashcard front from its revealed back", () => {
+    const entry = parseQuestion(
+      raw({
+        tipo: "FLASHCARD",
+        enunciado: "Front: Fireplace Back: Lareira. Tip: Pronuncie devagar.",
+        resposta_correta: "Lareira",
+      }),
+    );
+    expect(entry.status).toBe("repairable");
+    if (entry.status !== "repairable" || entry.question.kind !== "FLASHCARD") return;
+    expect(entry.question.enunciado).toBe("Fireplace");
+    expect(entry.question.canonicalAnswerText).toBe("Lareira.");
+  });
+
+  it("uses self-evaluation for explanatory short answers", () => {
+    const entry = parseQuestion(
+      raw({
+        tipo: "SHORT_ANSWER",
+        enunciado: "What is the difference between room and bedroom?",
+        resposta_correta: "Room is general, while bedroom is specifically for sleeping.",
+      }),
+    );
+    expect(entry.status).toBe("valid");
+    if (entry.status !== "valid" || entry.question.kind !== "SHORT_ANSWER") return;
+    expect(entry.question.gradingMode).toBe("self");
+  });
+
   it("PRONUNCIATION never becomes a valid question", () => {
     const entry = parseQuestion(raw({ tipo: "PRONUNCIATION", resposta_correta: "x" }));
     expect(entry.status).toBe("unsupported");

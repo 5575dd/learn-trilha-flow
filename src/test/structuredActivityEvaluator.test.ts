@@ -74,4 +74,30 @@ describe("structured activity evaluator", () => {
     expect(result.status).toBe("correct");
     expect(result.diagnosticCode).toBe("match.diacritic_variant");
   });
+
+  it("does not mark a paraphrased explanation wrong by literal comparison", () => {
+    const question: TextInputQuestion = {
+      ...base,
+      kind: "SHORT_ANSWER",
+      gradingMode: "self",
+      canonicalAnswerText: "Room is general, while bedroom is for sleeping.",
+    };
+    const result = evaluateAnswer(question, {
+      text: "Room é qualquer cômodo; bedroom é o quarto de dormir.",
+      selfEval: "know",
+    });
+    expect(result.status).toBe("correct");
+    expect(result.diagnosticCode).toBe("selfeval.know");
+  });
+
+  it("schedules review when the student reports not knowing a flashcard", () => {
+    const question = {
+      ...base,
+      kind: "FLASHCARD" as const,
+      canonicalAnswerText: "fireplace means lareira",
+    };
+    const result = evaluateAnswer(question, { selfEval: "unknown" });
+    expect(result.status).toBe("incorrect");
+    expect(result.diagnosticCode).toBe("selfeval.unknown");
+  });
 });

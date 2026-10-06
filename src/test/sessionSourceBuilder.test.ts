@@ -77,6 +77,8 @@ function attempt(questionId: number, status: "correct" | "incorrect"): AttemptRe
 describe("sessionSourceBuilder", () => {
   it("builds a complete aula deterministically without duplicates", () => {
     expect(buildAulaQuestionIds(questions, 1)).toEqual([1, 2]);
+    expect(buildAulaQuestionIds(questions, 1, 1)).toEqual([1]);
+    expect(buildAulaQuestionIds(questions, 1, 2)).toEqual([2]);
   });
 
   it("builds a limited quick session with injected randomness", () => {

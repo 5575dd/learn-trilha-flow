@@ -96,4 +96,24 @@ describe("SessionResult", () => {
     );
     expect(await screen.findByText("Nenhum erro para revisar nesta sessão.")).toBeTruthy();
   });
+
+  it("counts self-reported unknown as a reviewable error without hiding unanswered questions", async () => {
+    const state = setup();
+    const unknown = attempt("incorrect");
+    unknown.result.diagnosticCode = "selfeval.unknown";
+    await state.repository.save("user-a", state.manifest.id, unknown);
+    render(
+      <SessionResult
+        manifest={state.manifest}
+        userId="user-a"
+        store={state.store}
+        repository={state.repository}
+        onOpenManifest={state.onOpenManifest}
+      />,
+    );
+    expect(await screen.findByText("0%")).toBeVisible();
+    expect(screen.getByText(/1 autoavaliações/)).toBeVisible();
+    expect(screen.getByText(/1 não respondida/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Revisar erros desta sessão" })).toBeVisible();
+  });
 });
