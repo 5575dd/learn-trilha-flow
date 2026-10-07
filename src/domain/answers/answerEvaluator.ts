@@ -35,6 +35,9 @@ export function evaluateAnswer(q: ValidQuestion, input: StudentInput): Evaluatio
     if (ids.length !== q.availableBlocks.length) {
       return base(q, "", "invalid", "order.incomplete");
     }
+    if (new Set(ids).size !== ids.length) {
+      return base(q, "", "invalid", "order.duplicate_block");
+    }
     const byId = new Map(q.availableBlocks.map((b) => [b.id, b.text]));
     const parts: string[] = [];
     for (const id of ids) {
