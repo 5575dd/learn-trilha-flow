@@ -629,7 +629,11 @@ function SelfEvalView({
     q.frontText?.trim().toLocaleLowerCase() === q.enunciado.trim().toLocaleLowerCase();
   return (
     <div className="space-y-4">
-      <Stem text={stem} translation={q.traducao} hints={hints} />
+      <Stem
+        text={stem}
+        translation={q.kind === "FLASHCARD" && !revealed ? undefined : q.traducao}
+        hints={hints}
+      />
       {q.kind === "FLASHCARD" && !revealed && (
         <p className="rounded-xl bg-muted p-3 text-sm leading-relaxed text-muted-foreground">
           Pense na resposta antes de revelar. Depois compare com o modelo e escolha{" "}
