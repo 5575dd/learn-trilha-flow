@@ -22,6 +22,65 @@ function raw(overrides: Partial<RawQuestion>): RawQuestion {
 }
 
 describe("questionParser", () => {
+  it.each([" / ", " -> ", " \u2192 "])(
+    "reads legacy dialogue separator %s without splitting sentences",
+    (separator) => {
+      const lines = [
+        "Joy: Do you walk? Why?",
+        "Sally: Yes. We live close. Noon / afternoon is busy.",
+      ];
+      const entry = parseQuestion(
+        raw({ tipo: "DIALOGUE_ORDER", resposta_correta: lines.join(separator) }),
+      );
+      expect(entry.status).toBe("valid");
+      if (entry.status === "valid" && entry.question.kind === "DIALOGUE_ORDER") {
+        expect(entry.question.canonicalSequence).toEqual(lines);
+      }
+    },
+  );
+
+  it("repairs ORDER alternatives that contain whole sentences", () => {
+    const entry = parseQuestion(
+      raw({
+        tipo: "ORDER",
+        opcoes: "Where do they live?|live they Where do|Do where they live|Where live do they",
+        resposta_correta: "Where do they live?",
+      }),
+    );
+    expect(entry.status).toBe("repairable");
+    if (entry.status === "repairable" && entry.question.kind === "ORDER") {
+      expect(entry.question.availableBlocks.map((block) => block.text)).toEqual([
+        "Where",
+        "do",
+        "they",
+        "live?",
+      ]);
+    }
+  });
+
+  it("preserves modern multiword ORDER chunks", () => {
+    const entry = parseQuestion(
+      raw({
+        tipo: "ORDER",
+        opcoes: "leave the house?|they|What time|do",
+        resposta_correta: "What time do they leave the house?",
+      }),
+    );
+    expect(entry.status).toBe("valid");
+    if (entry.status === "valid" && entry.question.kind === "ORDER")
+      expect(entry.question.availableBlocks).toHaveLength(4);
+  });
+
+  it.each(["Where|do|they|study?", "Where from|do they"])(
+    "rejects impossible ORDER chunks %s",
+    (opcoes) => {
+      expect(
+        parseQuestion(raw({ tipo: "ORDER", opcoes, resposta_correta: "Where do they live?" }))
+          .status,
+      ).toBe("invalid");
+    },
+  );
+
   it("parses MC with pipe-separated options", () => {
     const entry = parseQuestion(
       raw({ tipo: "MC", opcoes: "does|do|is|are", resposta_correta: "does" }),

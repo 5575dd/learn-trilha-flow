@@ -36,6 +36,14 @@ function permutations<T>(arr: T[]): T[][] {
 }
 
 describe("ORDER evaluator", () => {
+  it("rejects a repeated block id even when its text could form the answer", () => {
+    const q = orderQ("very|very|good", "very very good");
+    const ids = q.availableBlocks.map((block) => block.id);
+    expect(evaluateAnswer(q, { selectedBlockIds: [ids[0], ids[0], ids[2]] }).diagnosticCode).toBe(
+      "order.duplicate_block",
+    );
+    expect(evaluateAnswer(q, { selectedBlockIds: ids }).status).toBe("correct");
+  });
   const cases: Array<[string, string]> = [
     ["Where|do|you|live", "Where do you live"],
     ["Where|is|your|sister|now", "Where is your sister now"],
