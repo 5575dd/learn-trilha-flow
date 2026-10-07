@@ -1,5 +1,6 @@
 import type { RawQuestion, QuestionEntry, ValidQuestion, OrderBlock } from "./questionTypes";
 import { SUPPORTED_KINDS } from "./questionTypes";
+import { normalizeAnswer } from "../answers/answerNormalizer";
 
 export function parseOptions(opcoes: string | null, metadados: unknown): string[] {
   if (metadados && typeof metadados === "object") {
@@ -39,7 +40,9 @@ export function parseOptions(opcoes: string | null, metadados: unknown): string[
 
 // For DIALOGUE_ORDER we only split by explicit list markers (never by "." / "?").
 function splitDialogue(text: string): string[] {
-  const s = (text ?? "").trim();
+  const s = (text ?? "")
+    .trim()
+    .replace(/\s+(?:\/|->|\u2192)\s+(?=[\p{L}][\p{L}\p{N} .'-]{0,39}:\s)/gu, "\n");
   if (!s) return [];
   if (s.startsWith("[")) {
     try {
@@ -183,6 +186,35 @@ function parseClassificationGroups(raw: unknown[]): {
 
 export function buildOrderBlocks(options: string[]): OrderBlock[] {
   return options.map((text, idx) => ({ id: `${idx}:${text}`, text }));
+}
+
+function canAssembleOrder(options: string[], canonical: string): boolean {
+  const words = canonical.split(/\s+/).map(normalizeAnswer);
+  const blocks = options.map((option) => option.split(/\s+/).map(normalizeAnswer));
+  if (blocks.reduce((count, block) => count + block.length, 0) !== words.length) return false;
+  const failed = new Set<string>();
+  const visit = (offset: number, remaining: number[]): boolean => {
+    if (remaining.length === 0) return offset === words.length;
+    const key = `${offset}:${remaining.join(",")}`;
+    if (failed.has(key)) return false;
+    for (const index of remaining) {
+      const block = blocks[index];
+      if (
+        block.every((word, position) => words[offset + position] === word) &&
+        visit(
+          offset + block.length,
+          remaining.filter((value) => value !== index),
+        )
+      )
+        return true;
+    }
+    failed.add(key);
+    return false;
+  };
+  return visit(
+    0,
+    blocks.map((_, index) => index),
+  );
 }
 
 export function parseQuestion(row: RawQuestion): QuestionEntry {
@@ -329,7 +361,7 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
   }
 
   if (kind === "ORDER") {
-    const options = parseOptions(row.opcoes, meta);
+    let options = parseOptions(row.opcoes, meta);
     if (options.length < 2) {
       return {
         status: "invalid",
@@ -337,6 +369,18 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
         tipo: kind,
         reason: "blocos insuficientes para ORDER",
       };
+    }
+    // Older generators supplied whole-sentence alternatives instead of word blocks.
+    if (
+      options.some((option) => normalizeAnswer(option) === normalizeAnswer(canonical)) &&
+      options.every((option) => option.split(/\s+/).length >= 2)
+    ) {
+      options = canonical.split(/\s+/);
+      repaired = true;
+      notes.push("blocos recuperados das alternativas de frase antigas");
+    }
+    if (!canAssembleOrder(options, canonical)) {
+      return { status: "invalid", id: row.id, tipo: kind, reason: "blocos não formam o gabarito" };
     }
     const availableBlocks = buildOrderBlocks(options);
     const shuffledBlocks = makeShuffle(availableBlocks);
@@ -353,7 +397,9 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
       canonicalAnswerText: canonical,
       separator: " ",
     };
-    return { status: "valid", question: q };
+    return repaired
+      ? { status: "repairable", question: q, notes }
+      : { status: "valid", question: q };
   }
 
   if (kind === "DIALOGUE_ORDER") {
@@ -369,7 +415,18 @@ export function parseQuestion(row: RawQuestion): QuestionEntry {
     }
     // Blocks come from opcoes / raw_options when present; otherwise fall back to canonical lines.
     const optRaw = parseOptions(row.opcoes, meta);
-    const blockTexts = optRaw.length >= canonicalSequence.length ? optRaw : canonicalSequence;
+    const remaining = [...canonicalSequence];
+    const matchesCanonical =
+      optRaw.length === canonicalSequence.length &&
+      optRaw.every((line) => {
+        const index = remaining.findIndex(
+          (expected) => normalizeAnswer(expected) === normalizeAnswer(line),
+        );
+        if (index < 0) return false;
+        remaining.splice(index, 1);
+        return true;
+      });
+    const blockTexts = matchesCanonical ? optRaw : canonicalSequence;
     const availableBlocks = buildOrderBlocks(blockTexts);
     const shuffledBlocks = makeShuffle(availableBlocks);
     const q: ValidQuestion = {
