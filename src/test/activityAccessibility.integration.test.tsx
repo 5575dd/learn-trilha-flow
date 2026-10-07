@@ -36,6 +36,22 @@ describe("accessible activity help", () => {
     );
   });
 
+  it("hides a vocabulary flashcard translation until the answer is revealed", async () => {
+    const user = userEvent.setup();
+    const question: ValidQuestion = {
+      ...base,
+      kind: "FLASHCARD",
+      enunciado: "Fireplace",
+      traducao: "Lareira",
+      canonicalAnswerText: "Lareira",
+    };
+    render(<Activity question={question} disabled={false} onSubmit={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Ver tradução" })).toBeNull();
+    expect(screen.queryByText("Lareira")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Mostrar resposta" }));
+    expect(screen.getByRole("button", { name: "Ver tradução" })).toBeVisible();
+  });
+
   it("requires revealing a flashcard before self-evaluation", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
