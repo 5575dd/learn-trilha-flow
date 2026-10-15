@@ -46,6 +46,18 @@ const complete = {
 beforeEach(cleanup);
 
 describe("lesson session actions", () => {
+  it("keeps the compact session choice free of repeated completion counts", () => {
+    render(
+      <LessonSessionActions
+        aulaId={17}
+        progress={{ ...base, completed: true, completedManifest: complete }}
+        compact
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Ver resultado da sessão 1" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Praticar novamente" })).toBeVisible();
+    expect(screen.queryByText("20 atividades · concluída")).not.toBeInTheDocument();
+  });
   it("offers a result and explicit practice instead of silently restarting", () => {
     render(
       <LessonSessionActions
