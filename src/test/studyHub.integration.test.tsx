@@ -267,7 +267,7 @@ describe("StudyHub cards", () => {
       />,
     );
     expect(screen.getByText("Revisão do dia")).toBeTruthy();
-    expect(screen.getByText("1 questão vencida")).toBeTruthy();
+    expect(screen.getByText("1 questão para revisar")).toBeTruthy();
   });
 
   it("shows a clear empty review state without creating a manifest", () => {
@@ -307,5 +307,57 @@ describe("StudyHub cards", () => {
     expect(created.source).toEqual({ kind: "dueReview" });
     expect(created.questionIds).toEqual([2]);
     expect(onOpenManifest).toHaveBeenCalledWith(created.id);
+  });
+
+  it("limits the daily review to ten questions without discarding the other due items", async () => {
+    const { store, onOpenManifest } = setup();
+    const manyQuestions = Array.from({ length: 25 }, (_, i) => ({
+      ...questions[0],
+      id: i + 1,
+      ordem: i + 1,
+    }));
+    render(
+      <StudyHub
+        userId="user-a"
+        aulas={aulas}
+        questions={manyQuestions}
+        attempts={[]}
+        dueReviewItems={manyQuestions.map((q) => ({ ...dueReview, questionId: q.id }))}
+        store={store}
+        onOpenManifest={onOpenManifest}
+      />,
+    );
+    await userEvent.setup().click(screen.getByRole("button", { name: "Iniciar revisão do dia" }));
+    const created = store.listByUser("user-a")[0];
+    expect(created.questionIds).toHaveLength(10);
+    expect(created.criteria.limit).toBe(10);
+    expect(screen.getByText("25 questões para revisar")).toBeVisible();
+  });
+
+  it("shows the saved result instead of allocating a new completed lesson session", async () => {
+    const { store, onOpenManifest } = setup();
+    const existing = store.create({
+      userId: "user-a",
+      source: { kind: "aula", aulaId: 1 },
+      criteria: { sessionNumber: 1 },
+      questionIds: [1, 2],
+    });
+    store.markCompleted("user-a", existing.id);
+    const onViewResult = vi.fn();
+    render(
+      <StudyHub
+        userId="user-a"
+        aulas={aulas}
+        questions={questions}
+        attempts={[]}
+        store={store}
+        onOpenManifest={onOpenManifest}
+        onViewResult={onViewResult}
+      />,
+    );
+    await userEvent.setup().click(screen.getByRole("button", { name: "Ver resultado" }));
+    expect(onViewResult).toHaveBeenCalledWith(existing.id);
+    expect(store.listByUser("user-a")).toHaveLength(1);
+    expect(screen.getByRole("option", { name: /Concluída/ })).toBeInTheDocument();
   });
 });

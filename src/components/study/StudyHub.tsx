@@ -9,9 +9,15 @@ import {
   buildQuestionTypeIds,
   buildQuickQuestionIds,
 } from "@/domain/session/sessionSourceBuilder";
-import type { SessionCriteria, SessionSource } from "@/domain/session/sessionManifest";
+import type {
+  SessionCriteria,
+  SessionSource,
+  SessionManifest,
+} from "@/domain/session/sessionManifest";
 import type { ReviewState } from "@/domain/review/reviewProjection";
 import { groupLessonSessions } from "@/domain/session/lessonSessions";
+import { CourseMaterials } from "@/components/study/CourseMaterials";
+import { buildLessonProgress } from "@/domain/progress/lessonProgress";
 
 export interface StudyHubProps {
   userId: string;
@@ -25,6 +31,7 @@ export interface StudyHubProps {
   store?: ManifestStore;
   random?: () => number;
   onOpenManifest: (manifestId: string) => void;
+  onViewResult?: (manifestId: string) => void;
 }
 
 export function StudyHub({
@@ -39,6 +46,7 @@ export function StudyHub({
   store = manifestStore,
   random,
   onOpenManifest,
+  onViewResult,
 }: StudyHubProps) {
   const [, refresh] = useState(0);
   const availableAulas = useMemo(
@@ -72,9 +80,11 @@ export function StudyHub({
   }, [availableTypes, questionType]);
 
   let recoverable = null;
+  let manifests: SessionManifest[] = [];
   let storageError = "";
   try {
     recoverable = store.findRecoverable(userId);
+    manifests = store.listByUser(userId);
   } catch {
     storageError = "O armazenamento local não está disponível.";
   }
@@ -92,6 +102,23 @@ export function StudyHub({
       setMessage("Não foi possível salvar a sessão neste dispositivo.");
     }
   }
+
+  const lessonProgress = buildLessonProgress(
+    userId,
+    Number(aulaId),
+    questions.map((q) => ({
+      id: q.id,
+      aula_id: q.aulaId ?? 0,
+      sessao: q.sessao,
+      ordem: q.ordem,
+      proxima_revisao_em: q.releaseAt ?? null,
+    })),
+    manifests,
+    [],
+  );
+  const selectedProgress = lessonProgress.sessions.find(
+    (item) => item.session === selectedSession?.session,
+  );
 
   return (
     <div className="space-y-4">
@@ -129,7 +156,7 @@ export function StudyHub({
               <>
                 <p className="text-sm text-slate-600">
                   {dueReviewItems.length}{" "}
-                  {dueReviewItems.length === 1 ? "questão vencida" : "questões vencidas"}
+                  {dueReviewItems.length === 1 ? "questão para revisar" : "questões para revisar"}
                 </p>
                 <Action
                   onClick={() => {
@@ -147,7 +174,7 @@ export function StudyHub({
                       setMessage("Nenhuma revisão vencida está disponível no momento.");
                       return;
                     }
-                    createAndOpen({ kind: "dueReview" }, {}, ids);
+                    createAndOpen({ kind: "dueReview" }, { limit: 10 }, ids.slice(0, 10));
                   }}
                 >
                   Iniciar revisão do dia
@@ -209,6 +236,10 @@ export function StudyHub({
                   <option key={group.session} value={group.session}>
                     Sessão {group.session} de {lessonSessions.length} · {group.questions.length}{" "}
                     atividades
+                    {lessonProgress.sessions.find((item) => item.session === group.session)
+                      ?.completed
+                      ? " · Concluída"
+                      : ""}
                   </option>
                 ))}
               </select>
@@ -217,6 +248,14 @@ export function StudyHub({
               onClick={() => {
                 const selectedAulaId = Number(aulaId);
                 if (!selectedSession) return;
+                if (selectedProgress?.activeManifest) {
+                  onOpenManifest(selectedProgress.activeManifest.id);
+                  return;
+                }
+                if (selectedProgress?.completedManifest) {
+                  (onViewResult ?? onOpenManifest)(selectedProgress.completedManifest.id);
+                  return;
+                }
                 createAndOpen(
                   { kind: "aula", aulaId: selectedAulaId },
                   { aulaId: selectedAulaId, sessionNumber: selectedSession.session },
@@ -224,13 +263,19 @@ export function StudyHub({
                 );
               }}
             >
-              Estudar sessão
+              {selectedProgress?.activeManifest
+                ? "Continuar sessão"
+                : selectedProgress?.completed
+                  ? "Ver resultado"
+                  : "Estudar sessão"}
             </Action>
           </>
         ) : (
           <p className="text-sm text-slate-500">Nenhuma aula possui questões disponíveis.</p>
         )}
       </StudyCard>
+
+      <CourseMaterials />
 
       <StudyCard title="Praticar por tipo">
         {availableTypes.length > 0 ? (

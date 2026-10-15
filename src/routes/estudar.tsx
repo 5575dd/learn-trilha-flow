@@ -50,7 +50,7 @@ function StudyPage() {
   });
   useQuery({
     queryKey: ["manifest-hydration", userId, "recoverable"],
-    queryFn: () => hydrateManifestStore(userId),
+    queryFn: () => hydrateManifestStore(userId, { includeHistory: true }),
     enabled: !!userId,
   });
   const questions = useMemo<ValidQuestion[]>(() => {
@@ -90,6 +90,9 @@ function StudyPage() {
       }
       reviewLocalOnly={reviews.data?.localOnly ?? false}
       onOpenManifest={(manifestId) => void navigate({ to: "/sessao", search: { m: manifestId } })}
+      onViewResult={(manifestId) =>
+        void navigate({ to: "/sessao/resultado", search: { m: manifestId } })
+      }
     />
   );
 }

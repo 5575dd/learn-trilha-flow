@@ -2,6 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { z } from "zod";
+import { useLearningProgress } from "@/hooks/useLearningProgress";
+import { LessonSessionActions } from "@/components/study/LessonSessionActions";
 import { RequireAuth } from "@/auth/RequireAuth";
 import { useAuth } from "@/auth/AuthContext";
 import { AppShell } from "@/components/layout/AppShell";
@@ -68,6 +70,7 @@ function StudyView({
   const navigate = useNavigate();
   const { session } = useAuth();
   const userId = session?.user.id ?? "";
+  const learning = useLearningProgress();
   const questoes = useQuery({
     queryKey: ["questoes", aulaId],
     queryFn: () => listQuestoesByAula(aulaId),
@@ -81,15 +84,26 @@ function StudyView({
   const groups = useMemo(() => groupLessonSessions(allQuestions), [allQuestions]);
   const selectedSession = isLessonSessionNumber(requestedSession)
     ? requestedSession
-    : groups.find((group) => group.available)?.session;
+    : (groups.find(
+        (group) =>
+          group.available &&
+          !learning.getLesson(aulaId).sessions.find((item) => item.session === group.session)
+            ?.completed,
+      )?.session ?? groups.find((group) => group.available)?.session);
   const group = groups.find((item) => item.session === selectedSession);
   const questions = group?.available ? group.questions : [];
   const mode: StudyMode = wantRestart ? "restart" : wantResume ? "resume" : "normal";
 
-  if (questoes.isLoading || !userId) {
+  if (questoes.isLoading || !userId || learning.isLoading) {
     return <p className="text-sm text-slate-500">Preparando sua trilha…</p>;
   }
   if (questoes.error) return <p className="text-sm text-rose-600">Erro ao carregar questões.</p>;
+  if (learning.error)
+    return (
+      <p role="alert" className="text-sm text-rose-600">
+        Não foi possível confirmar seu progresso. Volte às sessões e tente novamente.
+      </p>
+    );
   if (!group) {
     return (
       <div className="space-y-3 rounded-2xl bg-warning-soft p-4 text-warning-soft-foreground">
@@ -117,6 +131,22 @@ function StudyView({
           Voltar às sessões
         </Link>
       </div>
+    );
+  }
+  const savedProgress = learning
+    .getLesson(aulaId)
+    .sessions.find((item) => item.session === group.session);
+  if (!wantRestart && savedProgress && (savedProgress.completed || savedProgress.activeManifest)) {
+    return (
+      <section className="space-y-3">
+        <h1 className="font-display text-xl font-bold">Sessão {group.session}</h1>
+        <p className="text-sm text-muted-foreground">
+          {savedProgress.completed
+            ? "Você já concluiu esta sessão. Seu resultado continua salvo."
+            : "Sua sessão está salva. Continue de onde parou."}
+        </p>
+        <LessonSessionActions aulaId={aulaId} progress={savedProgress} />
+      </section>
     );
   }
 
