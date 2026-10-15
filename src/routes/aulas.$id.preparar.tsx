@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { RequireAuth } from "@/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
@@ -6,6 +6,9 @@ import { listQuestoesByAula } from "@/data/queries";
 import { validateAndRepair } from "@/domain/questions/questionValidator";
 import type { ValidQuestion } from "@/domain/questions/questionTypes";
 import { formatReleaseDate, groupLessonSessions } from "@/domain/session/lessonSessions";
+import { useLearningProgress } from "@/hooks/useLearningProgress";
+import { LessonProgressBadge } from "@/components/study/LessonProgressBadge";
+import { LessonSessionActions } from "@/components/study/LessonSessionActions";
 
 export const Route = createFileRoute("/aulas/$id/preparar")({
   ssr: false,
@@ -29,6 +32,7 @@ function Prepare() {
 }
 
 function PrepareView({ aulaId }: { aulaId: number }) {
+  const learning = useLearningProgress();
   const questoes = useQuery({
     queryKey: ["questoes", aulaId],
     queryFn: () => listQuestoesByAula(aulaId),
@@ -43,6 +47,7 @@ function PrepareView({ aulaId }: { aulaId: number }) {
   const unsupported = entries.filter((e) => e.status === "unsupported");
   const questions = valids.map((entry) => (entry as { question: ValidQuestion }).question);
   const sessions = groupLessonSessions(questions);
+  const progress = learning.getLesson(aulaId);
 
   return (
     <div className="space-y-4">
@@ -51,6 +56,14 @@ function PrepareView({ aulaId }: { aulaId: number }) {
         <p className="text-sm text-slate-500">
           Esta aula é revisada em {sessions.length} sessões. Você pode pausar e retomar.
         </p>
+        <div className="mt-3">
+          <LessonProgressBadge
+            progress={progress}
+            loading={learning.isLoading}
+            error={!!learning.error}
+          />
+        </div>
+        {learning.warning && <p className="mt-2 text-xs text-amber-800">{learning.warning}</p>}
       </header>
       <div className="grid grid-cols-3 gap-2">
         <Stat label="Prontas" value={valids.length} tone="ok" />
@@ -84,14 +97,20 @@ function PrepareView({ aulaId }: { aulaId: number }) {
               </div>
 
               {session.available ? (
-                <Link
-                  to="/aulas/$id/estudar"
-                  params={{ id: String(aulaId) }}
-                  search={{ sessao: String(session.session) }}
-                  className="mt-4 block min-h-12 rounded-2xl bg-primary py-3 text-center text-base font-semibold text-primary-foreground"
-                >
-                  Começar sessão {session.session}
-                </Link>
+                <LessonSessionActions
+                  aulaId={aulaId}
+                  loading={learning.isLoading}
+                  error={!!learning.error}
+                  progress={
+                    progress.sessions.find((item) => item.session === session.session) ?? {
+                      session: session.session,
+                      total: session.questions.length,
+                      answered: 0,
+                      completed: false,
+                      available: true,
+                    }
+                  }
+                />
               ) : session.questions.length === 0 ? (
                 <p className="mt-4 rounded-xl bg-muted p-3 text-center text-sm text-muted-foreground">
                   Nenhuma atividade nesta sessão.

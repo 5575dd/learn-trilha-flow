@@ -4,6 +4,8 @@ import { ChevronRight } from "lucide-react";
 import { RequireAuth } from "@/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
 import { listAulas } from "@/data/queries";
+import { useLearningProgress } from "@/hooks/useLearningProgress";
+import { LessonProgressBadge } from "@/components/study/LessonProgressBadge";
 
 export const Route = createFileRoute("/aulas/")({
   ssr: false,
@@ -33,6 +35,7 @@ export const Route = createFileRoute("/aulas/")({
 
 function AulasList() {
   const aulas = useQuery({ queryKey: ["aulas"], queryFn: listAulas });
+  const learning = useLearningProgress();
   return (
     <div className="space-y-4">
       <header>
@@ -78,7 +81,11 @@ function AulasList() {
                   <span className="rounded-full bg-muted px-2 py-1 font-medium">
                     {a.quantidade_atividades} atividades
                   </span>
-                  <span className="rounded-full bg-muted px-2 py-1 font-medium">{a.status}</span>
+                  <LessonProgressBadge
+                    progress={learning.getLesson(a.id)}
+                    loading={learning.isLoading}
+                    error={!!learning.error}
+                  />
                 </p>
               </div>
               <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />

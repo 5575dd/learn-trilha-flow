@@ -8,6 +8,10 @@ import type { ValidQuestion } from "@/domain/questions/questionTypes";
 import { validateAndRepair } from "@/domain/questions/questionValidator";
 import { replaceIpaWithPortugueseApproximation } from "@/domain/questions/pronunciation";
 import { formatReleaseDate, groupLessonSessions } from "@/domain/session/lessonSessions";
+import { useLearningProgress } from "@/hooks/useLearningProgress";
+import { LessonProgressBadge } from "@/components/study/LessonProgressBadge";
+import { LessonSessionActions } from "@/components/study/LessonSessionActions";
+import { CourseMaterials } from "@/components/study/CourseMaterials";
 
 export const Route = createFileRoute("/aulas/$id/")({
   ssr: false,
@@ -31,6 +35,7 @@ function AulaDetailRoute() {
 }
 
 function AulaDetail({ id }: { id: number }) {
+  const learning = useLearningProgress();
   const aula = useQuery({ queryKey: ["aula", id], queryFn: () => getAula(id) });
   const questoes = useQuery({
     queryKey: ["questoes", id],
@@ -67,10 +72,17 @@ function AulaDetail({ id }: { id: number }) {
     <div className="space-y-4">
       <header>
         <p className="text-xs text-slate-500">
-          {a.data_aula ?? "sem data"} • {a.status}
+          {a.data_aula ?? "sem data"} • {a.status === "concluida" ? "Material pronto" : a.status}
         </p>
         <h1 className="mt-1 text-2xl font-bold text-slate-900">{a.titulo ?? "Aula"}</h1>
         {a.tema && <p className="mt-1 text-sm text-slate-600">{a.tema}</p>}
+        <div className="mt-3">
+          <LessonProgressBadge
+            progress={learning.getLesson(id)}
+            loading={learning.isLoading}
+            error={!!learning.error}
+          />
+        </div>
       </header>
 
       {(a.resumo || a.content.overview) && (
@@ -299,20 +311,43 @@ function AulaDetail({ id }: { id: number }) {
                   ? "disponível"
                   : `libera em ${formatReleaseDate(session.releaseAt)}`}
               </p>
+              {session.available && (
+                <LessonSessionActions
+                  aulaId={id}
+                  loading={learning.isLoading}
+                  error={!!learning.error}
+                  progress={
+                    learning
+                      .getLesson(id)
+                      .sessions.find((item) => item.session === session.session) ?? {
+                      session: session.session,
+                      total: session.questions.length,
+                      answered: 0,
+                      completed: false,
+                      available: true,
+                    }
+                  }
+                />
+              )}
             </div>
           ))}
         </div>,
         sessionGroups.some((session) => session.questions.length > 0),
       )}
 
+      <CourseMaterials showLesson2={/unit\s*2\s*[-–:]?\s*lesson\s*2/i.test(a.titulo ?? "")} />
+
       {!questoes.isLoading && !questoes.error && validCount > 0 && (
         <Link
           to="/aulas/$id/preparar"
           params={{ id: String(a.id) }}
-          className="fixed inset-x-0 bottom-16 z-10 mx-auto block max-w-md px-4"
+          className="lesson-action-bar fixed inset-x-0 z-30 mx-auto block w-full max-w-md px-4 sm:max-w-lg"
+          style={{ bottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
         >
-          <span className="block min-h-12 rounded-2xl bg-purple-600 py-3 text-center text-base font-semibold text-white shadow-md">
-            Preparar sessão
+          <span className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-center text-base font-semibold leading-snug text-primary-foreground shadow-md whitespace-normal break-words">
+            {learning.getLesson(id).status === "completed"
+              ? "Ver sessões concluídas"
+              : "Preparar sessão"}
           </span>
         </Link>
       )}

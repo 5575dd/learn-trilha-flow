@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, CalendarDays, Flame } from "lucide-react";
 import { RequireAuth } from "@/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
-import { listAulas, listHistorico } from "@/data/queries";
+import { listAulas } from "@/data/queries";
+import { useLearningProgress } from "@/hooks/useLearningProgress";
+import { LessonProgressBadge } from "@/components/study/LessonProgressBadge";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -38,8 +40,11 @@ function HomePage() {
 
 function Home() {
   const aulas = useQuery({ queryKey: ["aulas"], queryFn: listAulas });
-  const historico = useQuery({ queryKey: ["historico"], queryFn: listHistorico });
-  const dias = (historico.data ?? []).slice(0, 7);
+  const learning = useLearningProgress();
+  const dias = learning.daily.days.slice(0, 7);
+  const nextLesson = aulas.data?.find((aula) =>
+    learning.getLesson(aula.id).sessions.some((s) => s.available && !s.completed),
+  );
 
   return (
     <div className="space-y-6">
@@ -58,6 +63,45 @@ function Home() {
         </Link>
       </section>
 
+      <section className="space-y-3 border-y border-border py-4" aria-label="Seu estudo de hoje">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-display text-lg font-semibold">Hoje</h2>
+          <p className="text-sm font-medium text-muted-foreground">
+            {learning.isLoading
+              ? "Carregando…"
+              : learning.error
+                ? "Progresso indisponível"
+                : `${learning.daily.today} atividades respondidas`}
+          </p>
+        </div>
+        {learning.warning && (
+          <p role="status" className="text-xs text-amber-800">
+            {learning.warning}
+          </p>
+        )}
+        {learning.localOnly && (
+          <p className="text-xs text-muted-foreground">Progresso disponível neste dispositivo</p>
+        )}
+        {!learning.isLoading && !learning.error && nextLesson && (
+          <Link
+            to="/aulas/$id/preparar"
+            params={{ id: String(nextLesson.id) }}
+            className="flex min-h-12 items-center justify-between gap-3 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+          >
+            <span className="min-w-0 break-words">
+              Continuar a trilha · {nextLesson.titulo ?? "Próxima aula"}
+            </span>
+            <ArrowRight className="size-4 shrink-0" aria-hidden />
+          </Link>
+        )}
+        <Link
+          to="/estudar"
+          className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary"
+        >
+          Revisar o que precisa de reforço <ArrowRight className="size-4" aria-hidden />
+        </Link>
+      </section>
+
       <section className="rounded-3xl border border-border bg-card p-4 shadow-card">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
           <h2 className="min-w-0 truncate text-sm font-semibold text-muted-foreground">
@@ -65,21 +109,21 @@ function Home() {
           </h2>
           <Flame className="h-4 w-4 shrink-0 text-accent" aria-hidden />
         </div>
-        {historico.isLoading ? (
+        {learning.isLoading ? (
           <p className="mt-3 text-sm text-muted-foreground">Carregando…</p>
-        ) : historico.error ? (
+        ) : learning.error ? (
           <p className="mt-3 text-sm text-destructive">Não foi possível carregar o histórico.</p>
         ) : dias.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">Nenhum estudo registrado ainda.</p>
         ) : (
           <ul className="mt-3 flex flex-wrap gap-2">
-            {dias.map((h, i) => (
+            {dias.map((day) => (
               <li
-                key={`${h.data_estudo ?? "sem-data"}-${i}`}
+                key={day}
                 className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-3 py-1 text-xs font-medium text-primary-soft-foreground"
               >
                 <CalendarDays className="h-3.5 w-3.5" aria-hidden />
-                {h.data_estudo ?? "sem data"}
+                {day.split("-").reverse().join("/")}
               </li>
             ))}
           </ul>
@@ -127,7 +171,11 @@ function Home() {
                     <span className="rounded-full bg-muted px-2 py-1 font-medium">
                       {a.quantidade_atividades} atividades
                     </span>
-                    <span className="rounded-full bg-muted px-2 py-1 font-medium">{a.status}</span>
+                    <LessonProgressBadge
+                      progress={learning.getLesson(a.id)}
+                      loading={learning.isLoading}
+                      error={!!learning.error}
+                    />
                   </p>
                 </Link>
               </li>
