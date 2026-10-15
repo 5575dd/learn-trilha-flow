@@ -47,7 +47,7 @@ export function AppShell({
         className={`relative mx-auto flex min-h-dvh w-full flex-col ${
           immersive
             ? "max-w-none p-0"
-            : "max-w-md px-4 pb-28 pt-[calc(1rem+env(safe-area-inset-top))] sm:max-w-lg"
+            : "max-w-md px-4 pb-[calc(9rem+env(safe-area-inset-bottom,0px))] pt-[calc(1rem+env(safe-area-inset-top))] sm:max-w-lg"
         }`}
       >
         {!hideHeader && !immersive && (
