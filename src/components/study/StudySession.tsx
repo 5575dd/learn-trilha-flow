@@ -107,7 +107,14 @@ export function StudySession({
               id: sessionId,
               userId,
               source: { kind: "aula", aulaId },
-              criteria: { aulaId },
+              criteria: {
+                aulaId,
+                ...(sessionScope?.match(/^sessao-([123])$/)
+                  ? {
+                      sessionNumber: Number(sessionScope.at(-1)),
+                    }
+                  : {}),
+              },
               questionIds,
             });
           if (manifest.status === "completed" || manifest.status === "abandoned") {
