@@ -109,7 +109,7 @@ describe("lesson session actions", () => {
     expect(screen.getByText("Progresso indisponível")).toBeVisible();
   });
   it("links to verified official resources without embedding credentials or copying the book", () => {
-    render(<CourseMaterials showLesson2 />);
+    render(<CourseMaterials lessonTitle="Unit 2 - Lesson 2" />);
     expect(screen.getAllByRole("link")).toHaveLength(5);
     expect(screen.getByRole("link", { name: "Homework 2" })).toHaveAttribute(
       "href",
