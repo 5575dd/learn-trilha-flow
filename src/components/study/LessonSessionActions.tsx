@@ -9,11 +9,13 @@ export function LessonSessionActions({
   progress,
   loading = false,
   error = false,
+  compact = false,
 }: {
   aulaId: number;
   progress: LessonSessionProgress;
   loading?: boolean;
   error?: boolean;
+  compact?: boolean;
 }) {
   if (loading)
     return (
@@ -69,7 +71,7 @@ export function LessonSessionActions({
           Começar sessão {progress.session}
         </Link>
       )}
-      {(complete || active) && (
+      {((complete && !compact) || active) && (
         <p className="text-xs text-muted-foreground">
           {complete
             ? `${progress.total} atividades · concluída`
