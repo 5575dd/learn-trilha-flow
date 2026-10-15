@@ -69,6 +69,26 @@ export async function listQuestoesByAula(aulaId: number): Promise<RawQuestion[]>
   return (data ?? []) as RawQuestion[];
 }
 
+export interface LessonQuestionIndex {
+  id: number;
+  aula_id: number;
+  sessao: number;
+  ordem: number;
+  proxima_revisao_em: string | null;
+}
+
+export async function listLessonQuestionIndex(): Promise<LessonQuestionIndex[]> {
+  return collectPages(async (from, to) => {
+    const { data, error } = await getSupabase()
+      .from("questoes")
+      .select("id, aula_id, sessao, ordem, proxima_revisao_em")
+      .order("id", { ascending: true })
+      .range(from, to);
+    if (error) throw error;
+    return (data ?? []) as LessonQuestionIndex[];
+  });
+}
+
 export interface QuestionsByIdsResult {
   questions: RawQuestion[];
   missingIds: number[];
