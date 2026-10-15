@@ -275,7 +275,9 @@ export function StudyHub({
         )}
       </StudyCard>
 
-      <CourseMaterials />
+      <CourseMaterials
+        lessonTitle={availableAulas.find((aula) => String(aula.id) === aulaId)?.titulo ?? ""}
+      />
 
       <StudyCard title="Praticar por tipo">
         {availableTypes.length > 0 ? (

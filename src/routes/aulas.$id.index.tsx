@@ -335,7 +335,7 @@ function AulaDetail({ id }: { id: number }) {
         sessionGroups.some((session) => session.questions.length > 0),
       )}
 
-      <CourseMaterials showLesson2={/unit\s*2\s*[-–:]?\s*lesson\s*2/i.test(a.titulo ?? "")} />
+      <CourseMaterials lessonTitle={a.titulo ?? ""} />
 
       {!questoes.isLoading && !questoes.error && validCount > 0 && (
         <Link
