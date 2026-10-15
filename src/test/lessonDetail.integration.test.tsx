@@ -26,6 +26,18 @@ vi.mock("@/components/layout/AppShell", () => ({
   AppShell: ({ children }: { children: ReactNode }) => children,
 }));
 vi.mock("@/data/queries", () => ({ getAula: vi.fn(), listQuestoesByAula: vi.fn() }));
+vi.mock("@/hooks/useLearningProgress", () => ({
+  useLearningProgress: () => ({
+    isLoading: false,
+    error: null,
+    getLesson: () => ({
+      status: "not-started",
+      sessions: [],
+      completedSessions: 0,
+      totalSessions: 2,
+    }),
+  }),
+}));
 vi.mock("@/domain/questions/questionValidator", () => ({
   validateAndRepair: (questions: unknown[]) =>
     questions.map((question) => ({ status: "valid", question })),
