@@ -22,7 +22,11 @@ import {
 } from "./tucunarePosition";
 
 const POSITION_KEY = "trilha:tucunare:position:v1";
-type Message = TutorMessage & { sources?: { label: string; url: string }[] };
+type Message = TutorMessage & { sources?: { label: string; url: string }[]; contextKey?: string };
+const contextKey = (request: Pick<TutorRequest, "questionId" | "lessonId" | "materialKey">) =>
+  request.questionId
+    ? `question:${request.questionId}`
+    : (request.materialKey ?? `lesson:${request.lessonId ?? 0}`);
 const storageKey = (userId: string) => `trilha:tucunare:conversation:v1:${userId}`;
 
 function loadMessages(userId: string): Message[] {
@@ -44,6 +48,9 @@ function loadMessages(userId: string): Message[] {
           .map((item: Message) => ({
             role: item.role,
             text: item.text.slice(0, 10_000),
+            ...(typeof item.contextKey === "string"
+              ? { contextKey: item.contextKey.slice(0, 80) }
+              : {}),
             ...(item.role === "assistant" ? { sources: filterTutorSources(item.sources) } : {}),
           }))
       : [];
@@ -119,7 +126,14 @@ export function TucunareAssistant() {
 
   useEffect(() => {
     setMaterialKey(undefined);
-  }, [pathname, context?.study?.lessonId]);
+    setError(null);
+    lastRequest.current = null;
+  }, [
+    pathname,
+    context?.study?.lessonId,
+    context?.study?.questionId,
+    context?.study?.questionView,
+  ]);
   useEffect(() => {
     if (!context?.practice || !userId || sendingRef.current) return;
     setMaterialKey(context.practice.materialKey);
@@ -224,7 +238,12 @@ export function TucunareAssistant() {
       if (currentEpoch !== epoch.current) return;
       const next = [
         ...conversation,
-        { role: "assistant" as const, text: result.answer, sources: result.sources },
+        {
+          role: "assistant" as const,
+          text: result.answer,
+          sources: result.sources,
+          contextKey: contextKey(request),
+        },
       ].slice(-20);
       setMessages(next);
       saveConversation(next);
@@ -259,15 +278,24 @@ export function TucunareAssistant() {
       return;
     const fromRoute = /^\/aulas\/(\d+)(?:\/|$)/.exec(pathname);
     const study = context?.study ?? (fromRoute ? { lessonId: Number(fromRoute[1]) } : {});
+    const currentContext = contextKey({ ...study, materialKey });
     const request: TutorRequest = {
       action: "chat",
       requestId: crypto.randomUUID(),
       message,
-      history: messages.slice(-6).map(({ role, text: value }) => ({ role, text: value })),
-      ...study,
+      history: messages
+        .filter((item) => item.contextKey === currentContext)
+        .slice(-6)
+        .map(({ role, text: value }) => ({ role, text: value })),
+      lessonId: study.lessonId,
+      questionId: study.questionId,
+      ...(study.questionView ? { questionView: study.questionView } : {}),
       ...(materialKey ? { materialKey } : {}),
     };
-    const next = [...messages, { role: "user" as const, text: message }].slice(-20);
+    const next = [
+      ...messages,
+      { role: "user" as const, text: message, contextKey: currentContext },
+    ].slice(-20);
     setMessages(next);
     saveConversation(next);
     setDraft("");
@@ -362,9 +390,11 @@ export function TucunareAssistant() {
               <p className="text-xs text-primary-foreground/80">
                 {materialKey
                   ? `Módulo 2 · Unidade ${materialKey.at(-4)} · Lição ${materialKey.at(-1)}`
-                  : lessonActive
-                    ? "Aula em contexto"
-                    : "Inglês, no seu ritmo"}
+                  : context?.study?.questionLabel
+                    ? context.study.questionLabel
+                    : lessonActive
+                      ? "Aula em contexto"
+                      : "Inglês, no seu ritmo"}
               </p>
             </div>
             <button

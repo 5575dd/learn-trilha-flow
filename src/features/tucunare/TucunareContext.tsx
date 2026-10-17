@@ -3,6 +3,8 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from "re
 export interface TutorStudyContext {
   lessonId?: number;
   questionId?: number;
+  questionView?: string;
+  questionLabel?: string;
 }
 type Practice = { materialKey: string; message: string };
 const Context = createContext<{
