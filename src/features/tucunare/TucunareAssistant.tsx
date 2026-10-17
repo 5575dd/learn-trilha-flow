@@ -348,7 +348,6 @@ export function TucunareAssistant() {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30" />
         <Dialog.Content
-          aria-describedby="tucunare-description"
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             trigger.current?.focus();
@@ -396,7 +395,7 @@ export function TucunareAssistant() {
               <X className="h-5 w-5" aria-hidden />
             </Dialog.Close>
           </header>
-          <Dialog.Description id="tucunare-description" className="sr-only">
+          <Dialog.Description className="sr-only">
             Conversa com a assistente de inglês Tucunaré.
           </Dialog.Description>
           <div
