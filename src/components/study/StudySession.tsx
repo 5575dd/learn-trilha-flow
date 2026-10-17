@@ -68,14 +68,15 @@ export function StudySession({
 }: StudySessionProps) {
   const [state, dispatch] = useReducer(sessionReducer, initialSession);
   const setTutorStudy = useTucunareContext()?.setStudy;
-  const tutorQuestion = state.questions[state.index];
+  const tutorQuestionId = state.questions[state.index]?.id;
+  const tutorLessonId = state.questions[state.index]?.aulaId;
   useEffect(() => {
-    const lessonId = tutorQuestion?.aulaId ?? (aulaId > 0 ? aulaId : undefined);
+    const lessonId = tutorLessonId ?? (aulaId > 0 ? aulaId : undefined);
     setTutorStudy?.(
-      tutorQuestion ? { lessonId: lessonId ?? undefined, questionId: tutorQuestion.id } : null,
+      tutorQuestionId ? { lessonId: lessonId ?? undefined, questionId: tutorQuestionId } : null,
     );
     return () => setTutorStudy?.(null);
-  }, [setTutorStudy, tutorQuestion?.id, tutorQuestion?.aulaId, aulaId]);
+  }, [setTutorStudy, tutorQuestionId, tutorLessonId, aulaId]);
   const [recoverableSession, setRecoverableSession] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const submittingRef = useRef(false);
