@@ -39,6 +39,19 @@ beforeEach(() => {
 });
 
 describe("Tucunare widget", () => {
+  it("connects the dialog description without accessibility warnings", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      render(view());
+      fireEvent.click(await screen.findByRole("button", { name: "Conversar com Tucunaré" }));
+      expect(screen.getByRole("dialog", { name: "Tucunaré" })).toHaveAccessibleDescription(
+        "Conversa com a assistente de inglês Tucunaré.",
+      );
+      expect(warning).not.toHaveBeenCalled();
+    } finally {
+      warning.mockRestore();
+    }
+  });
   it("restores safe material references when reopening a saved conversation", async () => {
     sessionStorage.setItem(
       "trilha:tucunare:conversation:v1:one",
