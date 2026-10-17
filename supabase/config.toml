@@ -1,1 +1,4 @@
-project_id = "fmtfaksqdqshpjsejeyo"
+project_id = "sybwfjrqjrttfzbnjsva"
+
+[functions.tucunare]
+verify_jwt = true
