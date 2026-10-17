@@ -12,6 +12,8 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "../auth/AuthContext";
+import { TucunareProvider } from "@/features/tucunare/TucunareContext";
+import { TucunareAssistant } from "@/features/tucunare/TucunareAssistant";
 
 function NotFoundComponent() {
   return (
@@ -146,7 +148,10 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Outlet />
+        <TucunareProvider>
+          <Outlet />
+          <TucunareAssistant />
+        </TucunareProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
