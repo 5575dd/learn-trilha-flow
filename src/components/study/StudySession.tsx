@@ -13,6 +13,7 @@ import { manifestStore, type ManifestStore } from "@/data/manifestStore";
 import { evaluateAnswer } from "@/domain/answers/answerEvaluator";
 import { questionKindLabelPtBr } from "@/domain/questions/questionLabels";
 import { useTucunareContext } from "@/features/tucunare/TucunareContext";
+import { tutorQuestionView } from "@/features/tucunare/tucunareQuestion";
 import type { ValidQuestion } from "@/domain/questions/questionTypes";
 import {
   initialSession,
@@ -68,15 +69,27 @@ export function StudySession({
 }: StudySessionProps) {
   const [state, dispatch] = useReducer(sessionReducer, initialSession);
   const setTutorStudy = useTucunareContext()?.setStudy;
-  const tutorQuestionId = state.questions[state.index]?.id;
-  const tutorLessonId = state.questions[state.index]?.aulaId;
+  const tutorQuestion = state.questions[state.index];
+  const tutorVisible = ["ready", "answering", "feedback"].includes(state.phase);
+  const tutorAnswer =
+    state.phase === "feedback"
+      ? state.attempts.find((attempt) => attempt.questionId === tutorQuestion?.id)?.result
+          .studentAnswerDisplay
+      : undefined;
   useEffect(() => {
-    const lessonId = tutorLessonId ?? (aulaId > 0 ? aulaId : undefined);
+    const lessonId = tutorQuestion?.aulaId ?? (aulaId > 0 ? aulaId : undefined);
     setTutorStudy?.(
-      tutorQuestionId ? { lessonId: lessonId ?? undefined, questionId: tutorQuestionId } : null,
+      tutorVisible && tutorQuestion
+        ? {
+            lessonId,
+            questionId: tutorQuestion.id,
+            questionView: tutorQuestionView(tutorQuestion, tutorAnswer),
+            questionLabel: `Questão ${state.index + 1} · ${questionKindLabelPtBr(tutorQuestion.kind)}`,
+          }
+        : null,
     );
     return () => setTutorStudy?.(null);
-  }, [setTutorStudy, tutorQuestionId, tutorLessonId, aulaId]);
+  }, [setTutorStudy, tutorQuestion, tutorVisible, tutorAnswer, state.index, aulaId]);
   const [recoverableSession, setRecoverableSession] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const submittingRef = useRef(false);

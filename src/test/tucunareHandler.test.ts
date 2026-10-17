@@ -6,6 +6,7 @@ let handler: (request: Request) => Promise<Response>;
 let quota: Record<string, unknown>;
 let providerStatus: number;
 let anonymous: boolean;
+let questionRow: Record<string, unknown>;
 const calls: { url: string; init?: RequestInit }[] = [];
 const json = (value: unknown, status = 200) => Response.json(value, { status });
 
@@ -29,6 +30,7 @@ beforeEach(() => {
   quota = { allowed: true, remaining: 29 };
   providerStatus = 200;
   anonymous = false;
+  questionRow = { id: 4, aula_id: 19, proxima_revisao_em: "2099-01-01" };
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string, init?: RequestInit) => {
@@ -36,8 +38,7 @@ beforeEach(() => {
       calls.push({ url, init });
       if (url.endsWith("/auth/v1/user")) return json({ id: userId, is_anonymous: anonymous });
       if (url.includes("rpc/tucunare_reserve")) return json(quota);
-      if (url.includes("/questoes?"))
-        return json([{ id: 4, aula_id: 19, proxima_revisao_em: "2099-01-01" }]);
+      if (url.includes("/questoes?")) return json([questionRow]);
       if (url.includes("/aulas?"))
         return json([{ id: 19, titulo: "Unit 2 - Lesson 3", dados_completos: {} }]);
       if (url.includes("/tucunare_materials?"))
@@ -84,6 +85,43 @@ const valid = { requestId, message: "Quando uso does?" };
 const aiCalls = () => calls.filter((call) => call.url.includes("generativelanguage"));
 
 describe("Tucunare server boundaries", () => {
+  it("sends the visible question only after checking access to its real identifier", async () => {
+    questionRow = { id: 4, aula_id: 19, tipo: "CORRECTION", enunciado: "Correct the sentence" };
+    const response = await handler(
+      request({
+        ...valid,
+        lessonId: 19,
+        questionId: 4,
+        questionView: '{"frase_original":"She go to work."}',
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(aiCalls()).toHaveLength(1);
+    expect(JSON.parse(String(aiCalls()[0].init?.body)).contents.at(-1).parts[0].text).toContain(
+      "She go to work.",
+    );
+    expect(calls.find((call) => call.url.includes("/questoes?"))?.init?.headers).toMatchObject({
+      Authorization: "Bearer user-token",
+    });
+  });
+  it("does not accept a visible snapshot as permission to access a locked or mismatched question", async () => {
+    expect(
+      (
+        await handler(
+          request({ ...valid, lessonId: 19, questionId: 4, questionView: "Visible data" }),
+        )
+      ).status,
+    ).toBe(400);
+    questionRow = { id: 4, aula_id: 18 };
+    expect(
+      (
+        await handler(
+          request({ ...valid, lessonId: 19, questionId: 4, questionView: "Visible data" }),
+        )
+      ).status,
+    ).toBe(400);
+    expect(aiCalls()).toHaveLength(0);
+  });
   it("checks authentication and rejects anonymous sessions before using AI", async () => {
     anonymous = true;
     expect((await handler(request(valid))).status).toBe(401);

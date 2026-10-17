@@ -58,7 +58,7 @@ async function contextFor(input: ChatRequest, jwt: string): Promise<LessonContex
   if (input.questionId) {
     const response = await fetch(
       `${SUPABASE_URL}/rest/v1/questoes?${new URLSearchParams({
-        select: "id,aula_id,enunciado,opcoes,metadados,proxima_revisao_em",
+        select: "id,aula_id,tipo,enunciado,opcoes,metadados,proxima_revisao_em",
         id: `eq.${input.questionId}`,
         limit: "1",
       })}`,
@@ -117,7 +117,7 @@ async function contextFor(input: ChatRequest, jwt: string): Promise<LessonContex
   if (!Array.isArray(rows) || !rows[0])
     throw new RequestError(404, "context_unavailable", "Aula nao encontrada.");
   return appendMaterials(
-    lessonContext(rows[0], question),
+    lessonContext(rows[0], question, input.questionView),
     input.materialKey ?? materialKeyForTitle(rows[0].titulo),
   );
 }

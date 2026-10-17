@@ -11,6 +11,7 @@ export interface TutorRequest {
   history: TutorMessage[];
   lessonId?: number;
   questionId?: number;
+  questionView?: string;
   materialKey?: string;
 }
 export interface TutorResponse {
@@ -66,7 +67,17 @@ async function invoke<T>(body: object): Promise<T> {
 }
 
 export async function askTucunare(request: TutorRequest): Promise<TutorResponse> {
-  const result = await invoke<TutorResponse>(request);
+  const body = {
+    ...request,
+    history: request.history.slice(-6).map((message) => ({
+      role: message.role,
+      text: message.text.slice(0, 1600),
+    })),
+  };
+  while (body.history.length && new TextEncoder().encode(JSON.stringify(body)).length > 16_000) {
+    body.history.shift();
+  }
+  const result = await invoke<TutorResponse>(body);
   if (!result || typeof result.answer !== "string" || !result.answer.trim()) {
     throw new TutorError("incomplete_answer");
   }
