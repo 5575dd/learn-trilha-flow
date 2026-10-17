@@ -6,6 +6,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { listAulas } from "@/data/queries";
 import { useLearningProgress } from "@/hooks/useLearningProgress";
 import { LessonProgressBadge } from "@/components/study/LessonProgressBadge";
+import { LatestImportStatus } from "@/components/study/LatestImportStatus";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -101,6 +102,8 @@ function Home() {
           Revisar o que precisa de reforço <ArrowRight className="size-4" aria-hidden />
         </Link>
       </section>
+
+      <LatestImportStatus />
 
       <section className="rounded-3xl border border-border bg-card p-4 shadow-card">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
