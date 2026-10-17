@@ -14,6 +14,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "../auth/AuthContext";
 import { TucunareProvider } from "@/features/tucunare/TucunareContext";
 import { TucunareAssistant } from "@/features/tucunare/TucunareAssistant";
+import { webAppLinks, webAppMeta } from "@/lib/webAppHead";
 
 function NotFoundComponent() {
   return (
@@ -78,6 +79,7 @@ function ErrorComponent({ error, reset }: { error: unknown; reset: () => void })
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
+      ...webAppMeta,
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "Ingles com vitao" },
@@ -119,7 +121,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      ...webAppLinks,
     ],
   }),
   shellComponent: RootShell,
