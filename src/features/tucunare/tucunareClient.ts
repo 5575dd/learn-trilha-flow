@@ -72,14 +72,25 @@ export async function askTucunare(request: TutorRequest): Promise<TutorResponse>
   }
   return {
     ...result,
-    sources: (Array.isArray(result.sources) ? result.sources : []).filter(
+    sources: filterTutorSources(result.sources),
+  };
+}
+
+export function filterTutorSources(value: unknown): TutorResponse["sources"] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
       (source) =>
-        typeof source?.label === "string" &&
+        source &&
+        typeof source.label === "string" &&
+        source.label.trim() &&
+        typeof source.url === "string" &&
         /^(?:https:\/\/learn-trilha-flow\.lovable\.app\/aulas\/\d+|https:\/\/lms-wo\.com\/mod\/url\/view\.php\?id=11202|https:\/\/view\.genially\.com\/[a-f0-9]{24})$/.test(
           source.url,
         ),
-    ),
-  };
+    )
+    .slice(0, 8)
+    .map((source) => ({ label: source.label.trim().slice(0, 160), url: source.url }));
 }
 
 export function getTucunareStatus(): Promise<{ remaining: number; limit: number }> {
