@@ -31,6 +31,7 @@ const object = (value: unknown): Record<string, unknown> =>
 export function cleanText(value: unknown, max: number): string {
   return typeof value === "string"
     ? value
+        // eslint-disable-next-line no-control-regex -- Strip non-printing control bytes from untrusted text.
         .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "")
         .trim()
         .slice(0, max)
