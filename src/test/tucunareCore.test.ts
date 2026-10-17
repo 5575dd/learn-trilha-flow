@@ -23,6 +23,42 @@ const valid = {
 };
 
 describe("Tucunare request safety", () => {
+  it("accepts a bounded visible exercise only with a question identifier", () => {
+    expect(
+      parseChat({ ...valid, questionId: 4, questionView: '{"enunciado":"Visible"}' }).questionView,
+    ).toContain("Visible");
+    expect(() => parseChat({ ...valid, questionView: "Unbound" })).toThrow();
+    expect(() => parseChat({ ...valid, questionId: 4, questionView: "x".repeat(4001) })).toThrow();
+  });
+  it("prioritizes the current exercise and keeps complete JSON even for a very long lesson", () => {
+    const context = lessonContext(
+      {
+        titulo: "Current lesson",
+        dados_completos: {
+          grammar: Array(20).fill({
+            name: "x".repeat(500),
+            structure: "s".repeat(1000),
+            explanation_ptbr: "e".repeat(2000),
+            examples: Array(10).fill({
+              text_english: "e".repeat(900),
+              translation_ptbr: "p".repeat(900),
+            }),
+          }),
+          vocabulary: Array(40).fill({ term: "t".repeat(500), translation_ptbr: "p".repeat(500) }),
+        },
+      },
+      { id: 4 },
+      '{"enunciado":"Current visible question"}',
+    );
+    expect(JSON.parse(context.text).atividade_atual).toMatchObject({
+      id: 4,
+      conteudo_visivel: '{"enunciado":"Current visible question"}',
+    });
+    expect(context.text.length).toBeLessThan(7000);
+    expect(geminiBody(parseChat(valid), context).systemInstruction.parts[0].text).toContain(
+      "questao aberta AGORA",
+    );
+  });
   it("validates explicit material selection and does not guess a unit from a topic", () => {
     expect(parseChat({ ...valid, materialKey: "module2-u2-l3" }).materialKey).toBe("module2-u2-l3");
     expect(() => parseChat({ ...valid, materialKey: "../../private" })).toThrow();
