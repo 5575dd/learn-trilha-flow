@@ -6,11 +6,13 @@ import { useAuth } from "@/auth/AuthContext";
 import { useTucunareContext } from "./TucunareContext";
 import {
   askTucunare,
+  filterTutorSources,
   getTucunareStatus,
   TutorError,
   type TutorMessage,
   type TutorRequest,
 } from "./tucunareClient";
+import { TutorAnswer } from "./TutorAnswer";
 import {
   clampTutorPosition,
   defaultTutorPosition,
@@ -26,7 +28,12 @@ const storageKey = (userId: string) => `trilha:tucunare:conversation:v1:${userId
 function loadMessages(userId: string): Message[] {
   try {
     const saved = JSON.parse(sessionStorage.getItem(storageKey(userId)) ?? "null");
-    if (!saved || Date.now() - saved.updatedAt > 12 * 60 * 60 * 1000) return [];
+    if (
+      !saved ||
+      !Number.isFinite(saved.updatedAt) ||
+      Date.now() - saved.updatedAt > 12 * 60 * 60 * 1000
+    )
+      return [];
     return Array.isArray(saved.messages)
       ? saved.messages
           .slice(-20)
@@ -34,7 +41,11 @@ function loadMessages(userId: string): Message[] {
             (item: Message) =>
               (item.role === "user" || item.role === "assistant") && typeof item.text === "string",
           )
-          .map((item: Message) => ({ role: item.role, text: item.text.slice(0, 10_000) }))
+          .map((item: Message) => ({
+            role: item.role,
+            text: item.text.slice(0, 10_000),
+            ...(item.role === "assistant" ? { sources: filterTutorSources(item.sources) } : {}),
+          }))
       : [];
   } catch {
     return [];
@@ -438,9 +449,13 @@ export function TucunareAssistant() {
                 <p className="mb-1 text-[11px] font-semibold text-muted-foreground">
                   {message.role === "user" ? "Você" : "Tucunaré"}
                 </p>
-                <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed">
-                  {message.text}
-                </p>
+                {message.role === "assistant" ? (
+                  <TutorAnswer text={message.text} />
+                ) : (
+                  <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed">
+                    {message.text}
+                  </p>
+                )}
                 {message.sources?.map((source) => (
                   <a
                     key={source.url}

@@ -39,6 +39,45 @@ beforeEach(() => {
 });
 
 describe("Tucunare widget", () => {
+  it("restores safe material references when reopening a saved conversation", async () => {
+    sessionStorage.setItem(
+      "trilha:tucunare:conversation:v1:one",
+      JSON.stringify({
+        updatedAt: Date.now(),
+        messages: [
+          {
+            role: "assistant",
+            text: "Use **does** com she.",
+            sources: [
+              { label: "Referência do livro", url: "https://lms-wo.com/mod/url/view.php?id=11202" },
+              { label: "Unsafe source", url: "https://evil.example" },
+            ],
+          },
+        ],
+      }),
+    );
+    render(view());
+    fireEvent.click(await screen.findByRole("button", { name: "Conversar com Tucunaré" }));
+    expect(screen.getByRole("link", { name: "Referência do livro" })).toHaveAttribute(
+      "href",
+      "https://lms-wo.com/mod/url/view.php?id=11202",
+    );
+    expect(screen.queryByRole("link", { name: "Unsafe source" })).not.toBeInTheDocument();
+    expect(screen.getByText("does").tagName).toBe("STRONG");
+    expect(mocks.ask).not.toHaveBeenCalled();
+  });
+  it("does not restore expired conversations", async () => {
+    sessionStorage.setItem(
+      "trilha:tucunare:conversation:v1:one",
+      JSON.stringify({
+        updatedAt: Date.now() - 13 * 60 * 60 * 1000,
+        messages: [{ role: "assistant", text: "Expired answer" }],
+      }),
+    );
+    render(view());
+    fireEvent.click(await screen.findByRole("button", { name: "Conversar com Tucunaré" }));
+    expect(screen.queryByText("Expired answer")).not.toBeInTheDocument();
+  });
   it("uses the app theme for the floating control, header and send button", async () => {
     render(view());
     const trigger = await screen.findByRole("button", { name: "Conversar com Tucunaré" });
