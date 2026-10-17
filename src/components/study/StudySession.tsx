@@ -12,6 +12,7 @@ import { attemptRepository } from "@/data/repositories/DualAttemptRepository";
 import { manifestStore, type ManifestStore } from "@/data/manifestStore";
 import { evaluateAnswer } from "@/domain/answers/answerEvaluator";
 import { questionKindLabelPtBr } from "@/domain/questions/questionLabels";
+import { useTucunareContext } from "@/features/tucunare/TucunareContext";
 import type { ValidQuestion } from "@/domain/questions/questionTypes";
 import {
   initialSession,
@@ -66,6 +67,15 @@ export function StudySession({
   managedSession,
 }: StudySessionProps) {
   const [state, dispatch] = useReducer(sessionReducer, initialSession);
+  const setTutorStudy = useTucunareContext()?.setStudy;
+  const tutorQuestion = state.questions[state.index];
+  useEffect(() => {
+    const lessonId = tutorQuestion?.aulaId ?? (aulaId > 0 ? aulaId : undefined);
+    setTutorStudy?.(
+      tutorQuestion ? { lessonId: lessonId ?? undefined, questionId: tutorQuestion.id } : null,
+    );
+    return () => setTutorStudy?.(null);
+  }, [setTutorStudy, tutorQuestion?.id, tutorQuestion?.aulaId, aulaId]);
   const [recoverableSession, setRecoverableSession] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const submittingRef = useRef(false);

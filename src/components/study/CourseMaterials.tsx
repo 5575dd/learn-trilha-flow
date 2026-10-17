@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
-import { BookOpen, ExternalLink, FileText } from "lucide-react";
+import { BookOpen, ExternalLink, FileText, Sparkles, MessageCircle } from "lucide-react";
+import { useTucunareContext } from "@/features/tucunare/TucunareContext";
 import {
   findModule2Lesson,
   module2GeneralResources,
@@ -28,6 +29,7 @@ export function CourseMaterials({ lessonTitle = "" }: { lessonTitle?: string }) 
 }
 
 function LessonMaterialsPicker({ suggested }: { suggested?: CourseLessonMaterials }) {
+  const tutor = useTucunareContext();
   const id = useId();
   const [unit, setUnit] = useState(suggested ? String(suggested.unit) : "");
   const [lesson, setLesson] = useState(suggested ? String(suggested.lesson) : "");
@@ -93,6 +95,36 @@ function LessonMaterialsPicker({ suggested }: { suggested?: CourseLessonMaterial
                 <ResourceLink key={item.href} {...item} />
               ))}
             </ul>
+            {tutor && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium"
+                  onClick={() =>
+                    tutor.setPractice({
+                      materialKey: `module2-u${selected.unit}-l${selected.lesson}`,
+                      message: `Quero uma pratica extra da Unidade ${selected.unit}, Licao ${selected.lesson}, do Modulo 2. Use os trechos disponiveis e os temas dos complementos. Proponha uma questao nova de cada vez e espere minha resposta.`,
+                    })
+                  }
+                >
+                  <Sparkles className="size-4" aria-hidden />
+                  Prática extra
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium"
+                  onClick={() =>
+                    tutor.setPractice({
+                      materialKey: `module2-u${selected.unit}-l${selected.lesson}`,
+                      message: `Quero ajuda para estudar o homework da Unidade ${selected.unit}, Licao ${selected.lesson}, do Modulo 2. Pergunte qual exercicio ou duvida tenho e me ajude por pistas. Nao invente o enunciado se ele nao estiver nos trechos disponiveis.`,
+                    })
+                  }
+                >
+                  <MessageCircle className="size-4" aria-hidden />
+                  Ajuda com homework
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
