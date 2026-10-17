@@ -292,7 +292,7 @@ export function TucunareAssistant() {
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-describedby="tucunare-move-help"
-        className="fixed z-40 grid h-[52px] w-[52px] touch-none select-none place-items-center rounded-full border-2 border-white bg-emerald-800 text-amber-200 shadow-lg outline-none focus-visible:ring-4 focus-visible:ring-emerald-300"
+        className="fixed z-40 grid h-[52px] w-[52px] touch-none select-none place-items-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-lg outline-none focus-visible:ring-4 focus-visible:ring-primary/30"
         style={{ left: position.x, top: position.y, visibility: open ? "hidden" : "visible" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -345,11 +345,11 @@ export function TucunareAssistant() {
           className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] right-3 z-50 flex w-[calc(100vw-24px)] max-w-[420px] flex-col overflow-hidden rounded-lg border border-border bg-card text-foreground shadow-xl outline-none"
           style={{ height: "min(640px, calc(100dvh - 24px))" }}
         >
-          <header className="flex shrink-0 items-center gap-3 border-b border-border bg-emerald-900 px-4 py-3 text-white">
-            <Fish className="h-7 w-7 shrink-0 text-amber-200" aria-hidden />
+          <header className="flex shrink-0 items-center gap-3 border-b border-border bg-primary px-4 py-3 text-primary-foreground">
+            <Fish className="h-7 w-7 shrink-0" aria-hidden />
             <div className="min-w-0 flex-1">
               <Dialog.Title className="text-base font-semibold">Tucunaré</Dialog.Title>
-              <p className="text-xs text-emerald-100">
+              <p className="text-xs text-primary-foreground/80">
                 {materialKey
                   ? `Módulo 2 · Unidade ${materialKey.at(-4)} · Lição ${materialKey.at(-1)}`
                   : lessonActive
@@ -362,7 +362,7 @@ export function TucunareAssistant() {
               title="Nova conversa"
               aria-label="Nova conversa"
               disabled={sending || messages.length === 0}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-md hover:bg-white/10 disabled:opacity-40"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-md hover:bg-primary-foreground/10 disabled:opacity-40"
               onClick={() => {
                 setMessages([]);
                 setError(null);
@@ -378,7 +378,7 @@ export function TucunareAssistant() {
               <RotateCcw className="h-4 w-4" aria-hidden />
             </button>
             <Dialog.Close
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-md hover:bg-white/10"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-md hover:bg-primary-foreground/10"
               aria-label="Fechar Tucunaré"
               title="Fechar"
             >
@@ -465,7 +465,7 @@ export function TucunareAssistant() {
           {error && (
             <div
               role="alert"
-              className="shrink-0 border-t border-border bg-amber-50 px-4 py-3 text-sm text-amber-950"
+              className="shrink-0 border-t border-border bg-warning-soft px-4 py-3 text-sm text-warning-soft-foreground"
             >
               <p>{error.message}</p>
               {lastRequest.current && (
@@ -513,7 +513,7 @@ export function TucunareAssistant() {
                 aria-label="Enviar pergunta"
                 title="Enviar"
                 disabled={sending || waiting || !draft.trim() || remaining === 0}
-                className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-emerald-800 text-white hover:bg-emerald-900 disabled:opacity-40"
+                className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
               >
                 <Send className="h-5 w-5" aria-hidden />
               </button>

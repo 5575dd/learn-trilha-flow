@@ -39,6 +39,20 @@ beforeEach(() => {
 });
 
 describe("Tucunare widget", () => {
+  it("uses the app theme for the floating control, header and send button", async () => {
+    render(view());
+    const trigger = await screen.findByRole("button", { name: "Conversar com Tucunaré" });
+    expect(trigger).toHaveClass("bg-primary", "text-primary-foreground");
+    fireEvent.click(trigger);
+    expect(screen.getByRole("heading", { name: "Tucunaré" }).closest("header")).toHaveClass(
+      "bg-primary",
+      "text-primary-foreground",
+    );
+    expect(screen.getByRole("button", { name: "Enviar pergunta" })).toHaveClass(
+      "bg-primary",
+      "text-primary-foreground",
+    );
+  });
   it("opens without spending an AI call, sends once, and preserves conversation on reopen", async () => {
     render(view());
     fireEvent.click(await screen.findByRole("button", { name: "Conversar com Tucunaré" }));
