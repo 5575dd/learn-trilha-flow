@@ -127,8 +127,8 @@ export async function listQuestoesByIds(ids: readonly number[]): Promise<Questio
   return orderQuestionsByIds(requested, (data ?? []) as RawQuestion[]);
 }
 
-export async function listQuestoesDisponiveis(): Promise<RawQuestion[]> {
-  const rows = await collectPages(async (from, to) => {
+export async function listQuestoesComAgendamento(): Promise<RawQuestion[]> {
+  return collectPages(async (from, to) => {
     const { data, error } = await getSupabase()
       .from("questoes")
       .select(QUESTION_COLUMNS)
@@ -140,7 +140,10 @@ export async function listQuestoesDisponiveis(): Promise<RawQuestion[]> {
     if (error) throw error;
     return (data ?? []) as RawQuestion[];
   });
-  return rows.filter((question) => isRawQuestionReleased(question));
+}
+
+export async function listQuestoesDisponiveis(): Promise<RawQuestion[]> {
+  return (await listQuestoesComAgendamento()).filter((question) => isRawQuestionReleased(question));
 }
 
 export function isRawQuestionReleased(question: RawQuestion, now = Date.now()): boolean {
