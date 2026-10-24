@@ -5,7 +5,8 @@ import { RequireAuth } from "@/auth/RequireAuth";
 import { useAuth } from "@/auth/AuthContext";
 import { AppShell } from "@/components/layout/AppShell";
 import { StudyHub } from "@/components/study/StudyHub";
-import { listAulas, listQuestoesDisponiveis } from "@/data/queries";
+import { isRawQuestionReleased, listAulas, listQuestoesComAgendamento } from "@/data/queries";
+import { useStudyClock } from "@/hooks/useStudyClock";
 import { consolidatedAttemptReadService } from "@/data/repositories/ConsolidatedAttemptRepository";
 import { reviewRepository } from "@/data/repositories/ReviewRepository";
 import { hydrateManifestStore } from "@/data/manifestStore";
@@ -28,6 +29,7 @@ function StudyRoute() {
 }
 
 function StudyPage() {
+  const now = useStudyClock();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const previousLessonList = useRef<string | null>(null);
@@ -35,8 +37,8 @@ function StudyPage() {
   const userId = session?.user.id ?? "";
   const aulas = useQuery({ queryKey: ["aulas"], queryFn: listAulas, refetchInterval: 60_000 });
   const rawQuestions = useQuery({
-    queryKey: ["questoes-disponiveis"],
-    queryFn: listQuestoesDisponiveis,
+    queryKey: ["questoes-com-agendamento"],
+    queryFn: listQuestoesComAgendamento,
   });
   const attempts = useQuery({
     queryKey: ["tentativas-consolidadas", userId],
@@ -54,18 +56,20 @@ function StudyPage() {
     enabled: !!userId,
   });
   const questions = useMemo<ValidQuestion[]>(() => {
-    const entries = validateAndRepair(rawQuestions.data ?? []);
+    const entries = validateAndRepair(
+      (rawQuestions.data ?? []).filter((question) => isRawQuestionReleased(question, now)),
+    );
     return entries
       .filter((entry) => entry.status === "valid" || entry.status === "repairable")
       .map((entry) => (entry as { question: ValidQuestion }).question);
-  }, [rawQuestions.data]);
+  }, [rawQuestions.data, now]);
   useEffect(() => {
     if (!aulas.data) return;
     const signature = aulas.data
       .map((aula) => `${aula.id}:${aula.status}:${aula.quantidade_atividades}`)
       .join("|");
     if (previousLessonList.current !== null && previousLessonList.current !== signature) {
-      void queryClient.invalidateQueries({ queryKey: ["questoes-disponiveis"] });
+      void queryClient.invalidateQueries({ queryKey: ["questoes-com-agendamento"] });
     }
     previousLessonList.current = signature;
   }, [aulas.data, queryClient]);

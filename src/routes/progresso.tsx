@@ -5,7 +5,8 @@ import { RequireAuth } from "@/auth/RequireAuth";
 import { useAuth } from "@/auth/AuthContext";
 import { AppShell } from "@/components/layout/AppShell";
 import { hydrateManifestStore } from "@/data/manifestStore";
-import { listQuestoesDisponiveis } from "@/data/queries";
+import { isRawQuestionReleased, listQuestoesComAgendamento } from "@/data/queries";
+import { useStudyClock } from "@/hooks/useStudyClock";
 import { consolidatedAttemptReadService } from "@/data/repositories/ConsolidatedAttemptRepository";
 import { reviewRepository } from "@/data/repositories/ReviewRepository";
 import {
@@ -33,13 +34,14 @@ function ProgressRoute() {
 }
 
 function ProgressPage() {
+  const now = useStudyClock();
   const navigate = useNavigate();
   const { session } = useAuth();
   const userId = session?.user.id ?? "";
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
   const questionsQuery = useQuery({
-    queryKey: ["questoes-disponiveis"],
-    queryFn: listQuestoesDisponiveis,
+    queryKey: ["questoes-com-agendamento"],
+    queryFn: listQuestoesComAgendamento,
   });
   const progressQuery = useQuery({
     queryKey: ["progresso", userId],
@@ -76,11 +78,13 @@ function ProgressPage() {
   }, [progressQuery]);
 
   const questions = useMemo<ValidQuestion[]>(() => {
-    const entries = validateAndRepair(questionsQuery.data ?? []);
+    const entries = validateAndRepair(
+      (questionsQuery.data ?? []).filter((question) => isRawQuestionReleased(question, now)),
+    );
     return entries
       .filter((entry) => entry.status === "valid" || entry.status === "repairable")
       .map((entry) => (entry as { question: ValidQuestion }).question);
-  }, [questionsQuery.data]);
+  }, [questionsQuery.data, now]);
   const summary = useMemo(
     () =>
       buildProgressSummary({
