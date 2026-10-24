@@ -18,6 +18,7 @@ import type { ReviewState } from "@/domain/review/reviewProjection";
 import { groupLessonSessions } from "@/domain/session/lessonSessions";
 import { CourseMaterials } from "@/components/study/CourseMaterials";
 import { buildLessonProgress } from "@/domain/progress/lessonProgress";
+import { useStudyClock } from "@/hooks/useStudyClock";
 
 export interface StudyHubProps {
   userId: string;
@@ -48,6 +49,7 @@ export function StudyHub({
   onOpenManifest,
   onViewResult,
 }: StudyHubProps) {
+  const now = useStudyClock();
   const [, refresh] = useState(0);
   const availableAulas = useMemo(
     () => aulas.filter((aula) => buildAulaQuestionIds(questions, aula.id).length > 0),
@@ -60,8 +62,12 @@ export function StudyHub({
   const [aulaId, setAulaId] = useState(() => String(availableAulas[0]?.id ?? ""));
   const [sessionNumber, setSessionNumber] = useState(1);
   const lessonSessions = useMemo(
-    () => groupLessonSessions(questions.filter((question) => question.aulaId === Number(aulaId))),
-    [aulaId, questions],
+    () =>
+      groupLessonSessions(
+        questions.filter((question) => question.aulaId === Number(aulaId)),
+        now,
+      ),
+    [aulaId, questions, now],
   );
   const availableSessions = lessonSessions.filter((group) => group.available);
   const selectedSession =
@@ -115,6 +121,7 @@ export function StudyHub({
     })),
     manifests,
     [],
+    now,
   );
   const selectedProgress = lessonProgress.sessions.find(
     (item) => item.session === selectedSession?.session,
