@@ -81,7 +81,10 @@ function StudyView({
       .filter((entry) => entry.status === "valid" || entry.status === "repairable")
       .map((entry) => (entry as { question: ValidQuestion }).question);
   }, [questoes.data]);
-  const groups = useMemo(() => groupLessonSessions(allQuestions), [allQuestions]);
+  const groups = useMemo(
+    () => groupLessonSessions(allQuestions, learning.now),
+    [allQuestions, learning.now],
+  );
   const selectedSession = isLessonSessionNumber(requestedSession)
     ? requestedSession
     : (groups.find(

@@ -5,17 +5,14 @@ import { listLessonQuestionIndex } from "@/data/queries";
 import { hydrateManifestStore, manifestStore } from "@/data/manifestStore";
 import { consolidatedAttemptReadService } from "@/data/repositories/ConsolidatedAttemptRepository";
 import { buildDailyStudy, buildLessonProgress } from "@/domain/progress/lessonProgress";
+import { useStudyClock } from "@/hooks/useStudyClock";
 
 export function useLearningProgress() {
   const { session } = useAuth();
   const userId = session?.user.id ?? "";
   const [, refresh] = useState(0);
-  const [now, setNow] = useState(Date.now);
+  const now = useStudyClock();
   useEffect(() => manifestStore.subscribe(userId, () => refresh((value) => value + 1)), [userId]);
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
   const index = useQuery({
     queryKey: ["lesson-question-index"],
     queryFn: listLessonQuestionIndex,
@@ -39,6 +36,7 @@ export function useLearningProgress() {
   }
   const entries = attempts.data?.entries ?? [];
   return {
+    now,
     userId,
     manifests,
     entries,
