@@ -46,7 +46,7 @@ function PrepareView({ aulaId }: { aulaId: number }) {
   const invalids = entries.filter((e) => e.status === "invalid");
   const unsupported = entries.filter((e) => e.status === "unsupported");
   const questions = valids.map((entry) => (entry as { question: ValidQuestion }).question);
-  const sessions = groupLessonSessions(questions);
+  const sessions = groupLessonSessions(questions, learning.now);
   const progress = learning.getLesson(aulaId);
 
   return (

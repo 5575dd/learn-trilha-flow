@@ -56,7 +56,7 @@ function AulaDetail({ id }: { id: number }) {
   const validQuestions = entries
     .filter((entry) => entry.status === "valid" || entry.status === "repairable")
     .map((entry) => (entry as { question: ValidQuestion }).question);
-  const sessionGroups = groupLessonSessions(validQuestions);
+  const sessionGroups = groupLessonSessions(validQuestions, learning.now);
 
   const section = (title: string, body: React.ReactNode, show: boolean) =>
     show ? (
